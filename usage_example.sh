@@ -6,6 +6,14 @@
 
 echo "🚀 Deploying AI Code Improvement System"
 
+# 0. Set Ollama configuration
+echo "🤖 Configuring Ollama connection..."
+export OLLAMA_HOST="${OLLAMA_HOST:-http://10.0.0.1:11434}"
+export OLLAMA_MODEL="${OLLAMA_MODEL:-gemma3:12b}"
+echo "  - Ollama host: $OLLAMA_HOST"
+echo "  - Ollama model: $OLLAMA_MODEL"
+echo ""
+
 # 1. Build Docker worker image
 echo "📦 Building Docker image..."
 docker build -t code-quality-improver:latest -f Dockerfile.worker .
@@ -14,11 +22,7 @@ docker build -t code-quality-improver:latest -f Dockerfile.worker .
 echo "🐍 Installing API dependencies..."
 pip install fastapi uvicorn docker python-multipart
 
-# 3. Configure environment variables
-export ANTHROPIC_API_KEY="your-anthropic-api-key"
-export GITHUB_TOKEN="your-github-token"
-
-# 4. Start API in background
+# 3. Start API in background
 echo "🌐 Starting API server..."
 python api_server.py &
 API_PID=$!
@@ -26,19 +30,18 @@ API_PID=$!
 # Wait for API to start
 sleep 5
 
-# 5. Test health check
+# 4. Test health check
 echo "🔍 Testing health check..."
 curl -s http://localhost:8000/health | python -m json.tool
 
-# 6. Test with sample SonarQube report
+# 5. Test with sample code report
 echo "📊 Sending test report..."
 
 curl -X POST "http://localhost:8000/improve-code" \
   -H "Content-Type: application/json" \
   -d '{
-    "repo_url": "https://github.com/your-username/test-repo.git",
+    "repo_url": "https://github.com/example/sample-repo.git",
     "branch": "main",
-    "github_token": "'$GITHUB_TOKEN'",
     "priority": "high",
     "issues": [
       {
@@ -73,6 +76,7 @@ echo "  - Health: http://localhost:8000/health"
 echo "  - All jobs: http://localhost:8000/jobs"
 echo "  - Job status: http://localhost:8000/status/{job_id}"
 echo "  - Job logs: http://localhost:8000/logs/{job_id}"
+echo "  - Recommendations: http://localhost:8000/recommendations/{job_id}"
 echo ""
 echo "📝 To stop the API: kill $API_PID"
 
