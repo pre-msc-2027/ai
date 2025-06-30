@@ -1,1 +1,6 @@
+.venv
+.idea
+
 test
+
+*_analysis_*.md
