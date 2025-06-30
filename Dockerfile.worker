@@ -41,12 +41,10 @@ RUN git config --global init.defaultBranch main \
 
 # Default environment variables
 ENV PYTHONUNBUFFERED=1
-ENV ANTHROPIC_API_KEY=""
-ENV GITHUB_TOKEN=""
 ENV REPO_URL=""
 ENV BRANCH="main"
 ENV JOB_ID=""
-ENV SONAR_REPORT="{}"
+ENV CODE_REPORT="{}"
 
 # Entry point
 CMD ["python", "/app/worker.py"]
