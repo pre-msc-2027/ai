@@ -81,12 +81,12 @@ def main():
         """
     )
 
-    parser.add_argument('--host', default='http://10.0.0.1:11434',
+    parser.add_argument('-h', '--host', default='http://10.0.0.1:11434',
                         help='Ollama server URL (default: http://10.0.0.1:11434)')
     parser.add_argument('-m', '--model', default='mistral:latest',
                         help='Ollama model to use (default: mistral:latest)')
     parser.add_argument('prompt', help='Prompt to send to AI')
-    parser.add_argument('-s', '--stream', action='store_true', help='Stream output')
+    parser.add_argument('--stream', action='store_true', help='Stream output')
     parser.add_argument('--async', dest='use_async', action='store_true', 
                         help='Use asynchronous mode')
 
