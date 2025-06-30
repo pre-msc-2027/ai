@@ -1,6 +1,6 @@
-# 🤖 Ollama CLI Tools
+# 🤖 SecuScan AI
 
-Simple command-line tools for interacting with Ollama AI models.
+Simple command-line tools to generate analysis reports using Ollama models.
 
 ## 📋 Prerequisites
 
@@ -12,7 +12,7 @@ Simple command-line tools for interacting with Ollama AI models.
 ```bash
 git clone git@github.com:pre-msc-2027/ai.git
 cd ai
-pip install -r requirements.txt
+poetry install
 ```
 
 ## 🛠️ Tools
@@ -38,16 +38,16 @@ python cli.py "Your prompt here" [options]
 **Examples:**
 ```bash
 # Basic usage
-python cli.py "What is Python?"
+poetry run python cli.py "What is Python?"
 
 # Different model and host
-python cli.py "Explain Docker" -m llama3:8b --host http://localhost:11434
+poetry run python cli.py "Explain Docker" -m llama3:8b --host http://localhost:11434
 
 # Streaming mode
-python cli.py "Write a function to sort a list" -s
+poetry run python cli.py "Write a function to sort a list" --stream
 
 # Async mode
-python cli.py "Explain machine learning" --async
+poetry run python cli.py "Explain machine learning" --async
 ```
 
 ### cli_file.py - Code File Analysis
@@ -75,22 +75,21 @@ python cli_file.py file1 [file2 ...] [options]
 **Examples:**
 ```bash
 # Analyze single file
-python cli_file.py main.py
-
+poetry run python cli_file.py main.py
 # Analyze multiple files (auto-async)
-python cli_file.py src/*.py
+poetry run python cli_file.py src/*.py
 
 # Save to markdown
-python cli_file.py main.py -o
+poetry run python cli_file.py main.py -o
 
 # Save to specific directory
-python cli_file.py src/*.py -o --output-dir reports
+poetry run python cli_file.py src/*.py -o --output-dir reports
 
 # Custom model and concurrent processing
-python cli_file.py *.py -m llama3:8b --concurrent 5
+poetry run python cli_file.py *.py -m llama3:8b --concurrent 5
 
 # Verbose output with streaming
-python cli_file.py app.py -v -s
+poetry run python cli_file.py app.py -v --stream
 ```
 
 ## 📄 Output
@@ -122,3 +121,36 @@ Both tools support:
 **File analysis issues:**
 - Ensure files exist and are readable
 - Check file extensions are supported (.py, .js, .ts, .java, etc.)
+
+## 🧪 Development & Testing
+
+### Running Tests
+
+With Poetry:
+```bash
+# Install dev dependencies
+poetry install --with dev
+
+# Run all tests
+poetry run pytest
+
+# Run tests with coverage
+poetry run pytest --cov
+
+# Run specific test file
+poetry run pytest tests/test_cli.py
+
+# Run tests in verbose mode
+poetry run pytest -v
+```
+
+### Test Structure
+
+- `tests/` - Test directory
+- `tests/conftest.py` - Common fixtures and test utilities
+- `tests/test_cli.py` - Tests for cli.py functionality
+- `tests/test_cli_file.py` - Tests for cli_file.py functionality
+
+### Coverage Reports
+
+HTML coverage reports are generated in `htmlcov/` directory after running tests with `--cov` flag.

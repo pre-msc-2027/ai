@@ -5,3 +5,8 @@ test
 
 analyses
 *_analysis_*.md
+
+# Testing
+htmlcov/
+.coverage
+.pytest_cache/
