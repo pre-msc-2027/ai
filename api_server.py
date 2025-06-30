@@ -1,14 +1,12 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, HttpUrl
 import docker
-import asyncio
 import uuid
 import json
 import logging
 from datetime import datetime
 from typing import Dict, Optional, List
 import os
-from pathlib import Path
 
 # Configuration
 app = FastAPI(title="Code Quality Improvement API")
@@ -17,10 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 # Pydantic Models
-class SonarReport(BaseModel):
+class CodeReport(BaseModel):
     repo_url: HttpUrl
     branch: str = "main"
-    github_token: Optional[str] = None
     issues: List[Dict] = []
     metrics: Dict = {}
     priority: str = "medium"  # low, medium, high, critical
@@ -43,11 +40,11 @@ jobs_storage: Dict[str, JobStatus] = {}
 
 @app.post("/improve-code")
 async def trigger_code_improvement(
-        report: SonarReport,
+        report: CodeReport,
         background_tasks: BackgroundTasks
 ):
     """
-    Main endpoint that receives a SonarQube report and triggers code improvement
+    Main endpoint that receives a code report and triggers code improvement
     """
     job_id = str(uuid.uuid4())
 
@@ -71,7 +68,7 @@ async def trigger_code_improvement(
     }
 
 
-async def process_code_improvement(job_id: str, report: SonarReport):
+async def process_code_improvement(job_id: str, report: CodeReport):
     """
     Function that launches the Docker container to process the code
     """
@@ -79,18 +76,18 @@ async def process_code_improvement(job_id: str, report: SonarReport):
 
     try:
         job.status = "running"
-        job.logs.append(f"Starting code improvement for {report.repo_url}")
+        job.logs.append(f"Starting code analysis for {report.repo_url}")
 
         # Container configuration
         container_config = {
             "image": "code-quality-improver:latest",
             "environment": {
-                "ANTHROPIC_API_KEY": os.getenv("ANTHROPIC_API_KEY"),
-                "GITHUB_TOKEN": report.github_token or os.getenv("GITHUB_TOKEN"),
                 "REPO_URL": str(report.repo_url),
                 "BRANCH": report.branch,
                 "JOB_ID": job_id,
-                "SONAR_REPORT": json.dumps(report.dict())
+                "CODE_REPORT": json.dumps(report.model_dump(mode='json')),
+                "OLLAMA_HOST": os.getenv("OLLAMA_HOST", "http://localhost:11434"),
+                "OLLAMA_MODEL": os.getenv("OLLAMA_MODEL", "deepseek-coder:latest")
             },
             "volumes": {
                 f"/tmp/code-jobs/{job_id}": {"bind": "/workspace", "mode": "rw"},
@@ -127,7 +124,7 @@ async def process_code_improvement(job_id: str, report: SonarReport):
             if pr_url:
                 job.pull_request_url = pr_url
 
-            job.logs.append("✅ Code improvement completed successfully!")
+            job.logs.append("✅ Code analysis completed successfully!")
         else:
             job.status = "failed"
             job.error_message = f"Container exited with code {result['StatusCode']}"
@@ -209,13 +206,60 @@ async def get_job_logs(job_id: str):
     job = jobs_storage[job_id]
 
     # Real-time logs from file
-    log_file = f"/tmp/logs/{job_id}/improvement.log"
+    log_file = f"/tmp/logs/{job_id}/analysis.log"
     if os.path.exists(log_file):
         with open(log_file, 'r') as f:
             file_logs = f.read().split('\n')
         return {"logs": job.logs + file_logs}
 
     return {"logs": job.logs}
+
+
+@app.get("/recommendations/{job_id}")
+async def get_recommendations(job_id: str):
+    """
+    Get analysis recommendations for a job
+    """
+    if job_id not in jobs_storage:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job = jobs_storage[job_id]
+    
+    # Check if job is completed
+    if job.status != "completed":
+        return {
+            "status": job.status,
+            "message": "Recommendations not yet available"
+        }
+    
+    # Read recommendations file
+    recommendations_file = f"/tmp/logs/{job_id}/recommendations_{job_id}.md"
+    if os.path.exists(recommendations_file):
+        with open(recommendations_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return {
+            "job_id": job_id,
+            "status": "completed",
+            "recommendations": content
+        }
+    
+    # Fallback to summary
+    summary_file = f"/tmp/logs/{job_id}/summary_{job_id}.json"
+    if os.path.exists(summary_file):
+        with open(summary_file, 'r') as f:
+            summary = json.load(f)
+        return {
+            "job_id": job_id,
+            "status": "completed",
+            "summary": summary,
+            "message": "Full recommendations file not found"
+        }
+    
+    return {
+        "job_id": job_id,
+        "status": "error",
+        "message": "Recommendations file not found"
+    }
 
 
 @app.get("/health")
@@ -234,7 +278,8 @@ async def health_check():
             "status": "healthy",
             "docker": "connected",
             "image": "available",
-            "active_jobs": len([j for j in jobs_storage.values() if j.status == "running"])
+            "active_jobs": len([j for j in jobs_storage.values() if j.status == "running"]),
+            "ollama_host": os.getenv("OLLAMA_HOST", "http://localhost:11434")
         }
     except Exception as e:
         return {
