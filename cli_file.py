@@ -16,6 +16,184 @@ from datetime import datetime
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Language mapping for file extensions
+LANGUAGE_MAP = {
+    '.py': 'Python',
+    '.js': 'JavaScript',
+    '.ts': 'TypeScript',
+    '.java': 'Java',
+    '.cpp': 'C++',
+    '.c': 'C',
+    '.cs': 'C#',
+    '.go': 'Go',
+    '.rs': 'Rust',
+    '.php': 'PHP',
+    '.rb': 'Ruby',
+    '.sh': 'Shell/Bash',
+    '.sql': 'SQL',
+    '.html': 'HTML',
+    '.css': 'CSS',
+    '.json': 'JSON',
+    '.xml': 'XML',
+    '.yml': 'YAML',
+    '.yaml': 'YAML',
+    '.md': 'Markdown'
+}
+
+
+def build_sonar_analysis_prompt(language, file_path, sonar_issues, content):
+    """Build the analysis prompt for SonarQube issues"""
+    # Build SonarQube issues section if available
+    sonar_section = ""
+    if sonar_issues and len(sonar_issues) > 0:
+        sonar_section = f"""
+
+**SonarQube Issues Detected ({len(sonar_issues)} issues):**
+"""
+        for i, issue in enumerate(sonar_issues, 1):
+            sonar_section += f"""
+{i}. **{issue.get('type', 'Issue').upper()}** (Line {issue.get('line', 'N/A')}) - {issue.get('severity', 'UNKNOWN')}
+   Message: {issue.get('message', 'No message')}
+   Code: `{issue.get('code', 'N/A')}`
+"""
+        sonar_section += "\nPlease address these SonarQube issues in your analysis and provide specific recommendations for fixing each one.\n"
+
+    # Build analysis prompt focused only on SonarQube issues
+    return f"""
+        You are a SonarQube issue resolver. Analyze ONLY the SonarQube issues detected in the {language} file: {file_path}
+
+        {sonar_section}
+        
+        For each SonarQube issue listed above, provide a response in this EXACT format:
+        
+        ## Issue #[NUMBER]
+        **Location:** Line [LINE_NUMBER]
+        **Type:** [ISSUE_TYPE]
+        **Severity:** [SEVERITY_LEVEL]
+        **Problem:** [BRIEF_DESCRIPTION]
+        
+        **Root Cause:**
+        [Explain why this is an issue in 1-2 sentences]
+        
+        **Solution:**
+        [Provide the exact code fix]
+        
+        **Original Code:**
+        ```{language.lower()}
+        [Show the problematic code]
+        ```
+        
+        **Fixed Code:**
+        ```{language.lower()}
+        [Show the corrected code]
+        ```
+        
+        **Why This Fix Works:**
+        [Explain in 1-2 sentences why this solution resolves the issue]
+        
+        ---
+        
+        IMPORTANT: 
+        - Address ONLY the SonarQube issues provided
+        - Do NOT add general code analysis or suggestions
+        - Use the exact format above for each issue
+        - Provide working code solutions
+        - Keep explanations concise and technical
+        
+        **File Content for Reference:**
+        ```{language.lower()}
+        {content}
+        ```
+    """
+
+
+def check_todo_comments(line, line_number):
+    """Check for TODO/FIXME comments"""
+    if 'TODO' in line.upper() or 'FIXME' in line.upper():
+        return {
+            'line': line_number,
+            'type': 'code_smell',
+            'severity': 'INFO',
+            'message': 'Complete the task associated to this TODO comment',
+            'code': line.strip()
+        }
+    return None
+
+
+def check_print_statements(line, line_number, file_path):
+    """Check for print statements in Python files"""
+    if 'print(' in line and file_path.endswith('.py'):
+        return {
+            'line': line_number,
+            'type': 'code_smell',
+            'severity': 'MINOR',
+            'message': 'Replace this use of System.out or System.err by a logger',
+            'code': line.strip()
+        }
+    return None
+
+
+def check_long_lines(line, line_number):
+    """Check for lines that are too long"""
+    if len(line) > 120:
+        return {
+            'line': line_number,
+            'type': 'code_smell',
+            'severity': 'MINOR',
+            'message': 'Split this 120 characters long line (which is greater than 120 authorized)',
+            'code': line.strip()[:50] + '...'
+        }
+    return None
+
+
+def check_empty_catch_blocks(line, line_number, lines, file_path):
+    """Check for empty catch blocks in Python"""
+    stripped_line = line.strip()
+    if file_path.endswith('.py') and 'except:' in stripped_line and line_number < len(lines):
+        next_line = lines[line_number].strip() if line_number < len(lines) else ""
+        if next_line.startswith("pass"):
+            return {
+                'line': line_number,
+                'type': 'bug',
+                'severity': 'MAJOR',
+                'message': 'Handle the exception or explain in a comment why it can be ignored',
+                'code': f"{stripped_line}\\n{next_line}"
+            }
+    return None
+
+
+def check_hardcoded_credentials(line, line_number):
+    """Check for hardcoded credentials"""
+    keywords = ['password=', 'secret=', 'api_key=', 'token=', 'secret_key']
+    if any(keyword in line.lower() for keyword in keywords):
+        if not line.strip().startswith('#'):  # Not a comment
+            return {
+                'line': line_number,
+                'type': 'vulnerability',
+                'severity': 'BLOCKER',
+                'message': 'Review this hardcoded credential',
+                'code': line.strip()
+            }
+    return None
+
+
+def check_unused_imports(line, line_number, content, file_path):
+    """Check for unused imports in Python files"""
+    if file_path.endswith('.py') and line.strip().startswith('import ') and 'import os' not in line:
+        try:
+            import_name = line.split('import ')[1].split(' as ')[0].split('.')[0].strip()
+            if import_name not in content[content.find(line) + len(line):]:
+                return {
+                    'line': line_number,
+                    'type': 'code_smell',
+                    'severity': 'MINOR',
+                    'message': f'Unused import: {import_name}',
+                    'code': line.strip()
+                }
+        except IndexError:
+            pass  # Skip malformed import lines
+    return None
+
 
 def get_static_analysis_issues(file_path):
     """Perform static analysis to find code issues"""
@@ -28,74 +206,21 @@ def get_static_analysis_issues(file_path):
         
         lines = content.split('\n')
         
+        # List of checker functions
+        checkers = [
+            lambda line, i: check_todo_comments(line, i),
+            lambda line, i: check_print_statements(line, i, file_path),
+            lambda line, i: check_long_lines(line, i),
+            lambda line, i: check_empty_catch_blocks(line, i, lines, file_path),
+            lambda line, i: check_hardcoded_credentials(line, i),
+            lambda line, i: check_unused_imports(line, i, content, file_path),
+        ]
+        
         for i, line in enumerate(lines, 1):
-            stripped_line = line.strip()
-            
-            # TODO/FIXME comments
-            if 'TODO' in line.upper() or 'FIXME' in line.upper():
-                issues.append({
-                    'line': i,
-                    'type': 'code_smell',
-                    'severity': 'INFO',
-                    'message': 'Complete the task associated to this TODO comment',
-                    'code': line.strip()
-                })
-            
-            # Print statements in Python (should use logging)
-            if 'print(' in line and file_path.endswith('.py'):
-                issues.append({
-                    'line': i,
-                    'type': 'code_smell',
-                    'severity': 'MINOR',
-                    'message': 'Replace this use of System.out or System.err by a logger',
-                    'code': line.strip()
-                })
-            
-            # Long lines
-            if len(line) > 120:
-                issues.append({
-                    'line': i,
-                    'type': 'code_smell',
-                    'severity': 'MINOR',
-                    'message': 'Split this 120 characters long line (which is greater than 120 authorized)',
-                    'code': line.strip()[:50] + '...'
-                })
-            
-            # Empty catch blocks (Python)
-            if file_path.endswith('.py') and 'except:' in stripped_line and i < len(lines):
-                next_line = lines[i].strip() if i < len(lines) else ""  # lines[i] is the next line after current line i-1
-                if next_line.startswith("pass"):  # Check if line starts with 'pass'
-                    issues.append({
-                        'line': i,
-                        'type': 'bug',
-                        'severity': 'MAJOR',
-                        'message': 'Handle the exception or explain in a comment why it can be ignored',
-                        'code': f"{stripped_line}\\n{next_line}"
-                    })
-            
-            # Hardcoded credentials
-            if any(keyword in line.lower() for keyword in ['password=', 'secret=', 'api_key=', 'token=', 'secret_key']):
-                if not line.strip().startswith('#'):  # Not a comment
-                    issues.append({
-                        'line': i,
-                        'type': 'vulnerability',
-                        'severity': 'BLOCKER',
-                        'message': 'Review this hardcoded credential',
-                        'code': line.strip()
-                    })
-            
-            # Unused imports (Python)
-            if file_path.endswith('.py') and line.strip().startswith('import ') and 'import os' not in line:
-                # Simple check - could be improved with AST analysis
-                import_name = line.split('import ')[1].split(' as ')[0].split('.')[0].strip()
-                if import_name not in content[content.find(line) + len(line):]:
-                    issues.append({
-                        'line': i,
-                        'type': 'code_smell',
-                        'severity': 'MINOR',
-                        'message': f'Unused import: {import_name}',
-                        'code': line.strip()
-                    })
+            for checker in checkers:
+                issue = checker(line, i)
+                if issue:
+                    issues.append(issue)
         
         if issues:
             logger.info(f"✅ Found {len(issues)} static analysis issues")
@@ -161,94 +286,11 @@ def analyze_file_with_ollama_sync(host, model, file_path, content, is_streaming,
     # Get file extension for context
     file_ext = Path(file_path).suffix.lower()
     
-    # Determine file type for better analysis
-    language_map = {
-        '.py': 'Python',
-        '.js': 'JavaScript',
-        '.ts': 'TypeScript',
-        '.java': 'Java',
-        '.cpp': 'C++',
-        '.c': 'C',
-        '.cs': 'C#',
-        '.go': 'Go',
-        '.rs': 'Rust',
-        '.php': 'PHP',
-        '.rb': 'Ruby',
-        '.sh': 'Shell/Bash',
-        '.sql': 'SQL',
-        '.html': 'HTML',
-        '.css': 'CSS',
-        '.json': 'JSON',
-        '.xml': 'XML',
-        '.yml': 'YAML',
-        '.yaml': 'YAML',
-        '.md': 'Markdown'
-    }
+    # Determine file type for better analysis  
+    language = LANGUAGE_MAP.get(file_ext, 'Unknown')
     
-    language = language_map.get(file_ext, 'Unknown')
-    
-    # Build SonarQube issues section if available
-    sonar_section = ""
-    if sonar_issues and len(sonar_issues) > 0:
-        sonar_section = f"""
-
-**SonarQube Issues Detected ({len(sonar_issues)} issues):**
-"""
-        for i, issue in enumerate(sonar_issues, 1):
-            sonar_section += f"""
-{i}. **{issue.get('type', 'Issue').upper()}** (Line {issue.get('line', 'N/A')}) - {issue.get('severity', 'UNKNOWN')}
-   Message: {issue.get('message', 'No message')}
-   Code: `{issue.get('code', 'N/A')}`
-"""
-        sonar_section += "\\nPlease address these SonarQube issues in your analysis and provide specific recommendations for fixing each one.\\n"
-
-    # Build analysis prompt focused only on SonarQube issues
-    prompt = f"""
-        You are a SonarQube issue resolver. Analyze ONLY the SonarQube issues detected in the {language} file: {file_path}
-
-        {sonar_section}
-        
-        For each SonarQube issue listed above, provide a response in this EXACT format:
-        
-        ## Issue #[NUMBER]
-        **Location:** Line [LINE_NUMBER]
-        **Type:** [ISSUE_TYPE]
-        **Severity:** [SEVERITY_LEVEL]
-        **Problem:** [BRIEF_DESCRIPTION]
-        
-        **Root Cause:**
-        [Explain why this is an issue in 1-2 sentences]
-        
-        **Solution:**
-        [Provide the exact code fix]
-        
-        **Original Code:**
-        ```{language.lower()}
-        [Show the problematic code]
-        ```
-        
-        **Fixed Code:**
-        ```{language.lower()}
-        [Show the corrected code]
-        ```
-        
-        **Why This Fix Works:**
-        [Explain in 1-2 sentences why this solution resolves the issue]
-        
-        ---
-        
-        IMPORTANT: 
-        - Address ONLY the SonarQube issues provided
-        - Do NOT add general code analysis or suggestions
-        - Use the exact format above for each issue
-        - Provide working code solutions
-        - Keep explanations concise and technical
-        
-        **File Content for Reference:**
-        ```{language.lower()}
-        {content}
-        ```
-    """
+    # Build analysis prompt
+    prompt = build_sonar_analysis_prompt(language, file_path, sonar_issues, content)
     
     try:
         if not save_to_file:
@@ -312,94 +354,11 @@ async def analyze_file_with_ollama_async(host, model, file_path, content, is_str
     # Get file extension for context
     file_ext = Path(file_path).suffix.lower()
     
-    # Determine file type for better analysis
-    language_map = {
-        '.py': 'Python',
-        '.js': 'JavaScript',
-        '.ts': 'TypeScript',
-        '.java': 'Java',
-        '.cpp': 'C++',
-        '.c': 'C',
-        '.cs': 'C#',
-        '.go': 'Go',
-        '.rs': 'Rust',
-        '.php': 'PHP',
-        '.rb': 'Ruby',
-        '.sh': 'Shell/Bash',
-        '.sql': 'SQL',
-        '.html': 'HTML',
-        '.css': 'CSS',
-        '.json': 'JSON',
-        '.xml': 'XML',
-        '.yml': 'YAML',
-        '.yaml': 'YAML',
-        '.md': 'Markdown'
-    }
+    # Determine file type for better analysis  
+    language = LANGUAGE_MAP.get(file_ext, 'Unknown')
     
-    language = language_map.get(file_ext, 'Unknown')
-    
-    # Build SonarQube issues section if available
-    sonar_section = ""
-    if sonar_issues and len(sonar_issues) > 0:
-        sonar_section = f"""
-
-**SonarQube Issues Detected ({len(sonar_issues)} issues):**
-"""
-        for i, issue in enumerate(sonar_issues, 1):
-            sonar_section += f"""
-{i}. **{issue.get('type', 'Issue').upper()}** (Line {issue.get('line', 'N/A')}) - {issue.get('severity', 'UNKNOWN')}
-   Message: {issue.get('message', 'No message')}
-   Code: `{issue.get('code', 'N/A')}`
-"""
-        sonar_section += "\\nPlease address these SonarQube issues in your analysis and provide specific recommendations for fixing each one.\\n"
-
-    # Build analysis prompt focused only on SonarQube issues
-    prompt = f"""
-        You are a SonarQube issue resolver. Analyze ONLY the SonarQube issues detected in the {language} file: {file_path}
-
-        {sonar_section}
-        
-        For each SonarQube issue listed above, provide a response in this EXACT format:
-        
-        ## Issue #[NUMBER]
-        **Location:** Line [LINE_NUMBER]
-        **Type:** [ISSUE_TYPE]
-        **Severity:** [SEVERITY_LEVEL]
-        **Problem:** [BRIEF_DESCRIPTION]
-        
-        **Root Cause:**
-        [Explain why this is an issue in 1-2 sentences]
-        
-        **Solution:**
-        [Provide the exact code fix]
-        
-        **Original Code:**
-        ```{language.lower()}
-        [Show the problematic code]
-        ```
-        
-        **Fixed Code:**
-        ```{language.lower()}
-        [Show the corrected code]
-        ```
-        
-        **Why This Fix Works:**
-        [Explain in 1-2 sentences why this solution resolves the issue]
-        
-        ---
-        
-        IMPORTANT: 
-        - Address ONLY the SonarQube issues provided
-        - Do NOT add general code analysis or suggestions
-        - Use the exact format above for each issue
-        - Provide working code solutions
-        - Keep explanations concise and technical
-        
-        **File Content for Reference:**
-        ```{language.lower()}
-        {content}
-        ```
-    """
+    # Build analysis prompt
+    prompt = build_sonar_analysis_prompt(language, file_path, sonar_issues, content)
     
     try:
         if not save_to_file:
