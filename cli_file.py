@@ -7,15 +7,19 @@ Analyzes code files and provides recommendations using static analysis
 import argparse
 import os
 import asyncio
+import logging
 from pathlib import Path
 from ollama import Client, AsyncClient
 from datetime import datetime
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 def get_static_analysis_issues(file_path):
     """Perform static analysis to find code issues"""
     try:
-        print("🔍 Running static analysis...")
+        logger.info("🔍 Running static analysis...")
         issues = []
         
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -93,14 +97,14 @@ def get_static_analysis_issues(file_path):
                     })
         
         if issues:
-            print(f"✅ Found {len(issues)} static analysis issues")
+            logger.info(f"✅ Found {len(issues)} static analysis issues")
         else:
-            print("✅ No issues found")
+            logger.info("✅ No issues found")
             
         return issues
         
     except Exception as e:
-        print(f"⚠️  Error during static analysis: {e}")
+        logger.error(f"⚠️  Error during static analysis: {e}")
         return []
 
 
@@ -111,13 +115,13 @@ def read_file_content(file_path):
             content = f.read()
         return content
     except FileNotFoundError:
-        print(f"Error: File '{file_path}' not found.")
+        logger.error(f"Error: File '{file_path}' not found.")
         return None
     except PermissionError:
-        print(f"Error: Permission denied to read '{file_path}'.")
+        logger.error(f"Error: Permission denied to read '{file_path}'.")
         return None
     except Exception as e:
-        print(f"Error reading file '{file_path}': {e}")
+        logger.error(f"Error reading file '{file_path}': {e}")
         return None
 
 
@@ -143,9 +147,9 @@ def save_to_markdown(output_file, content, analyzed_file, output_dir=None):
             f.write(f"# Analysis Report for {analyzed_file}\\n\\n")
             f.write(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n\\n")
             f.write(content)
-        print(f"\\n✅ Analysis saved to: {output_path}")
+        logger.info(f"✅ Analysis saved to: {output_path}")
     except Exception as e:
-        print(f"\\n❌ Error saving to file: {e}")
+        logger.error(f"❌ Error saving to file: {e}")
 
 
 def analyze_file_with_ollama_sync(host, model, file_path, content, is_streaming, sonar_issues=None, save_to_file=False):
@@ -247,12 +251,12 @@ def analyze_file_with_ollama_sync(host, model, file_path, content, is_streaming,
     
     try:
         if not save_to_file:
-            print(f"🔍 Analyzing {language} file: {file_path}")
-            print(f"📊 File size: {len(content)} characters")
-            print("🤖 Sending to Ollama for analysis...\\n")
+            logger.info(f"🔍 Analyzing {language} file: {file_path}")
+            logger.debug(f"📊 File size: {len(content)} characters")
+            logger.info("🤖 Sending to Ollama for analysis...")
         else:
-            print(f"🔍 Analyzing {language} file: {file_path}")
-            print("🤖 Generating analysis report...")
+            logger.info(f"🔍 Analyzing {language} file: {file_path}")
+            logger.info("🤖 Generating analysis report...")
         
         # Send prompt to Ollama
         response = client.chat(
@@ -288,14 +292,14 @@ def analyze_file_with_ollama_sync(host, model, file_path, content, is_streaming,
                     print("=" * 80)
                     print(response_content)
                     print("\\n" + "=" * 80)
-                    print("✅ Analysis completed!")
+                    logger.info("✅ Analysis completed!")
                 return response_content
             else:
-                print("❌ Error: No response content received from Ollama")
+                logger.error("❌ Error: No response content received from Ollama")
                 return None
             
     except Exception as e:
-        print(f"❌ Error communicating with Ollama: {e}")
+        logger.error(f"❌ Error communicating with Ollama: {e}")
         return None
 
 
@@ -398,12 +402,12 @@ async def analyze_file_with_ollama_async(host, model, file_path, content, is_str
     
     try:
         if not save_to_file:
-            print(f"🔍 Analyzing {language} file: {file_path}")
-            print(f"📊 File size: {len(content)} characters")
-            print("🤖 Sending to Ollama for analysis...\\n")
+            logger.info(f"🔍 Analyzing {language} file: {file_path}")
+            logger.debug(f"📊 File size: {len(content)} characters")
+            logger.info("🤖 Sending to Ollama for analysis...")
         else:
-            print(f"🔍 Analyzing {language} file: {file_path}")
-            print("🤖 Generating analysis report...")
+            logger.info(f"🔍 Analyzing {language} file: {file_path}")
+            logger.info("🤖 Generating analysis report...")
         
         # Send prompt to Ollama asynchronously
         response = await client.chat(
@@ -439,14 +443,14 @@ async def analyze_file_with_ollama_async(host, model, file_path, content, is_str
                     print("=" * 80)
                     print(response_content)
                     print("\\n" + "=" * 80)
-                    print("✅ Analysis completed!")
+                    logger.info("✅ Analysis completed!")
                 return response_content
             else:
-                print("❌ Error: No response content received from Ollama")
+                logger.error("❌ Error: No response content received from Ollama")
                 return None
             
     except Exception as e:
-        print(f"❌ Error communicating with Ollama: {e}")
+        logger.error(f"❌ Error communicating with Ollama: {e}")
         return None
 
 
@@ -456,9 +460,7 @@ async def process_multiple_files_async(host, model, file_paths, save_output=Fals
     
     async def process_file(file_path):
         async with semaphore:
-            print(f"\\n{'='*80}")
-            print(f"Processing: {file_path}")
-            print('='*80)
+            logger.info(f"Processing: {file_path}")
             
             # Read file content
             content = read_file_content(file_path)
@@ -468,14 +470,14 @@ async def process_multiple_files_async(host, model, file_paths, save_output=Fals
             # Check file size
             max_size = 100000  # 100KB limit
             if len(content) > max_size:
-                print(f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters.")
+                logger.warning(f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters.")
                 content = content[:max_size] + "\\n... (truncated)"
             
             # Get static analysis issues
             sonar_issues = get_static_analysis_issues(file_path)
             
             if sonar_issues:
-                print(f"⚠️  Found {len(sonar_issues)} code issues")
+                logger.info(f"⚠️  Found {len(sonar_issues)} code issues")
                 
                 # Analyze with Ollama
                 is_streaming = not save_output
@@ -488,7 +490,7 @@ async def process_multiple_files_async(host, model, file_paths, save_output=Fals
                 
                 return response
             else:
-                print("✅ No code issues detected - Analysis skipped")
+                logger.info("✅ No code issues detected - Analysis skipped")
                 return None
     
     # Process all files concurrently
@@ -510,24 +512,23 @@ async def main_async(args, valid_files):
         # Check file size
         max_size = 100000  # 100KB limit
         if len(content) > max_size:
-            print(f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters.")
+            logger.warning(f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters.")
             content = content[:max_size] + "\\n... (truncated)"
         
         # Get static analysis issues
-        print("🔍 Checking for code issues...")
+        logger.info("🔍 Checking for code issues...")
         sonar_issues = get_static_analysis_issues(file_path)
         
         if sonar_issues:
-            print(f"⚠️  Found {len(sonar_issues)} code issues")
+            logger.info(f"⚠️  Found {len(sonar_issues)} code issues")
             if args.verbose:
                 for issue in sonar_issues:
-                    print(f"  - Line {issue.get('line', 'N/A')}: {issue.get('message', 'No message')}")
+                    logger.debug(f"  - Line {issue.get('line', 'N/A')}: {issue.get('message', 'No message')}")
             
             if args.verbose:
-                print(f"📁 File: {file_path}")
-                print(f"📏 Size: {len(content)} characters")
-                print(f"🔤 First 200 chars: {content[:200]}...")
-                print()
+                logger.debug(f"📁 File: {file_path}")
+                logger.debug(f"📏 Size: {len(content)} characters")
+                logger.debug(f"🔤 First 200 chars: {content[:200]}...")
             
             # Override streaming if output file is specified
             is_streaming = args.stream and not args.output
@@ -540,7 +541,7 @@ async def main_async(args, valid_files):
                 output_filename = generate_output_filename(file_path)
                 save_to_markdown(output_filename, response, file_path, args.output_dir)
         else:
-            print("✅ No code issues detected - Analysis skipped")
+            logger.info("✅ No code issues detected - Analysis skipped")
     else:
         # Multiple files mode
         await process_multiple_files_async(args.host, args.model, valid_files, args.output, args.concurrent, args.output_dir)
@@ -581,6 +582,14 @@ def main():
 
     args = parser.parse_args()
 
+    # Configure logging level based on verbose flag
+    log_level = logging.DEBUG if args.verbose else logging.WARNING
+    logging.basicConfig(
+        level=log_level,
+        format='[%(asctime)s] [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
     # Expand glob patterns if any
     import glob
     all_files = []
@@ -601,19 +610,19 @@ def main():
         if os.path.exists(file_path) and os.path.isfile(file_path):
             valid_files.append(file_path)
         else:
-            print(f"❌ Error: '{file_path}' does not exist or is not a file.")
+            logger.error(f"❌ Error: '{file_path}' does not exist or is not a file.")
     
     if not valid_files:
-        print("❌ No valid files to analyze.")
+        logger.error("❌ No valid files to analyze.")
         return 1
 
     # Force async mode for multiple files
     if len(valid_files) > 1 and not args.use_async:
-        print(f"ℹ️  Multiple files detected, enabling async mode automatically...")
+        logger.info(f"ℹ️  Multiple files detected, enabling async mode automatically...")
         args.use_async = True
 
     if args.use_async:
-        print(f"🚀 Analyzing {len(valid_files)} file(s) in async mode with max {args.concurrent} concurrent requests...")
+        logger.info(f"🚀 Analyzing {len(valid_files)} file(s) in async mode with max {args.concurrent} concurrent requests...")
         return asyncio.run(main_async(args, valid_files))
     else:
         # Single file sync mode
@@ -625,24 +634,23 @@ def main():
         # Check file size
         max_size = 100000  # 100KB limit
         if len(content) > max_size:
-            print(f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters.")
+            logger.warning(f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters.")
             content = content[:max_size] + "\\n... (truncated)"
 
         # Get static analysis issues for the file
-        print("🔍 Checking for code issues...")
+        logger.info("🔍 Checking for code issues...")
         sonar_issues = get_static_analysis_issues(file_path)
         
         if sonar_issues:
-            print(f"⚠️  Found {len(sonar_issues)} code issues")
+            logger.info(f"⚠️  Found {len(sonar_issues)} code issues")
             if args.verbose:
                 for issue in sonar_issues:
-                    print(f"  - Line {issue.get('line', 'N/A')}: {issue.get('message', 'No message')}")
+                    logger.debug(f"  - Line {issue.get('line', 'N/A')}: {issue.get('message', 'No message')}")
             
             if args.verbose:
-                print(f"📁 File: {file_path}")
-                print(f"📏 Size: {len(content)} characters")
-                print(f"🔤 First 200 chars: {content[:200]}...")
-                print()
+                logger.debug(f"📁 File: {file_path}")
+                logger.debug(f"📏 Size: {len(content)} characters")
+                logger.debug(f"🔤 First 200 chars: {content[:200]}...")
 
             # Override streaming if output file is specified
             is_streaming = args.stream and not args.output
@@ -655,7 +663,7 @@ def main():
                 output_filename = generate_output_filename(file_path)
                 save_to_markdown(output_filename, response, file_path, args.output_dir)
         else:
-            print("✅ No code issues detected - Analysis skipped")
+            logger.info("✅ No code issues detected - Analysis skipped")
     
     return 0
 

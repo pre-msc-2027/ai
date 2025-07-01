@@ -5,7 +5,11 @@ Ollama AI CLI Tool - Simple POC using Ollama
 
 import argparse
 import asyncio
+import logging
 from ollama import Client, AsyncClient
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 def send_prompt_sync(host, model, prompt, is_streaming):
@@ -38,7 +42,7 @@ def send_prompt_sync(host, model, prompt, is_streaming):
             if 'message' in response and 'content' in response['message']:
                 print(response['message']['content'])
     except Exception as e:
-        print(f"Error communicating with Ollama: {e}")
+        logger.error(f"Error communicating with Ollama: {e}")
 
 
 async def send_prompt_async(host, model, prompt, is_streaming):
@@ -71,7 +75,7 @@ async def send_prompt_async(host, model, prompt, is_streaming):
             if 'message' in response and 'content' in response['message']:
                 print(response['message']['content'])
     except Exception as e:
-        print(f"Error communicating with Ollama: {e}")
+        logger.error(f"Error communicating with Ollama: {e}")
 
 
 def main():
@@ -93,10 +97,19 @@ def main():
                         help='Ollama model to use (default: mistral:latest)')
     parser.add_argument('prompt', help='Prompt to send to AI')
     parser.add_argument('--stream', action='store_true', help='Stream output')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
     parser.add_argument('--async', dest='use_async', action='store_true', 
                         help='Use asynchronous mode')
 
     args = parser.parse_args()
+
+    # Configure logging level based on verbose flag
+    log_level = logging.DEBUG if args.verbose else logging.WARNING
+    logging.basicConfig(
+        level=log_level,
+        format='[%(asctime)s] [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
     if args.use_async:
         # Run asynchronously

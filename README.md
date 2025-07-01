@@ -4,7 +4,7 @@ Simple command-line tools to generate analysis reports using Ollama models.
 
 ## 📋 Prerequisites
 
-- Python 3.7+
+- Python 3.8+
 - Ollama installed and running
 
 ## ⚡ Installation
@@ -33,6 +33,7 @@ python cli.py "Your prompt here" [options]
 - `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
 - `-m, --model MODEL` - Model to use (default: mistral:latest)
 - `--stream` - Enable streaming output
+- `-v, --verbose` - Enable verbose output (debug logs)
 - `--async` - Use asynchronous mode
 
 **Examples:**
@@ -48,6 +49,9 @@ poetry run python cli.py "Write a function to sort a list" --stream
 
 # Async mode
 poetry run python cli.py "Explain machine learning" --async
+
+# Verbose mode (shows debug logs)
+poetry run python cli.py "Debug this code" --verbose
 ```
 
 ### cli_file.py - Code File Analysis
@@ -65,7 +69,7 @@ python cli_file.py file1 [file2 ...] [options]
 **Options:**
 - `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
 - `-m, --model MODEL` - Model to use (default: mistral:latest)
-- `-s, --stream` - Enable streaming output
+- `--stream` - Enable streaming output
 - `-v, --verbose` - Enable verbose output
 - `-o, --output` - Save analysis to markdown files
 - `--output-dir DIR` - Directory to save markdown files (created if not exists)
