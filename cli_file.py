@@ -8,6 +8,7 @@ import argparse
 import os
 import asyncio
 import logging
+import time
 from pathlib import Path
 from ollama import Client, AsyncClient
 from datetime import datetime
@@ -454,13 +455,15 @@ async def analyze_file_with_ollama_async(host, model, file_path, content, is_str
         return None
 
 
-async def process_multiple_files_async(host, model, file_paths, save_output=False, max_concurrent=3, output_dir=None):
+async def process_multiple_files_async(host, model, file_paths, save_output=False, max_concurrent=3, output_dir=None, stream_enabled=False):
     """Process multiple files concurrently with rate limiting"""
+    start_total = time.time()
     semaphore = asyncio.Semaphore(max_concurrent)
     
     async def process_file(file_path):
         async with semaphore:
-            logger.info(f"Processing: {file_path}")
+            start_time = time.time()
+            logger.info(f"⏳ Processing: {file_path}")
             
             # Read file content
             content = read_file_content(file_path)
@@ -479,8 +482,8 @@ async def process_multiple_files_async(host, model, file_paths, save_output=Fals
             if sonar_issues:
                 logger.info(f"⚠️  Found {len(sonar_issues)} code issues")
                 
-                # Analyze with Ollama
-                is_streaming = not save_output
+                # Analyze with Ollama - consistent streaming logic with sync mode
+                is_streaming = stream_enabled and not save_output
                 response = await analyze_file_with_ollama_async(host, model, file_path, content, is_streaming, sonar_issues, save_output)
                 
                 # Save to markdown if requested
@@ -488,65 +491,26 @@ async def process_multiple_files_async(host, model, file_paths, save_output=Fals
                     output_filename = generate_output_filename(file_path)
                     save_to_markdown(output_filename, response, file_path, output_dir)
                 
+                elapsed_time = time.time() - start_time
+                logger.info(f"✅ Completed {file_path} in {elapsed_time:.1f}s")
                 return response
             else:
-                logger.info("✅ No code issues detected - Analysis skipped")
+                elapsed_time = time.time() - start_time
+                logger.info(f"✅ No code issues detected - Analysis skipped ({elapsed_time:.1f}s)")
                 return None
     
     # Process all files concurrently
     tasks = [process_file(fp) for fp in file_paths]
     results = await asyncio.gather(*tasks)
     
+    # Performance summary
+    total_time = time.time() - start_total
+    successful_files = sum(1 for r in results if r is not None)
+    logger.info(f"🏁 Async processing completed: {successful_files}/{len(file_paths)} files in {total_time:.1f}s")
+    
     return results
 
 
-async def main_async(args, valid_files):
-    """Async main function for file processing"""
-    if len(valid_files) == 1:
-        # Single file mode
-        file_path = valid_files[0]
-        content = read_file_content(file_path)
-        if content is None:
-            return 1
-        
-        # Check file size
-        max_size = 100000  # 100KB limit
-        if len(content) > max_size:
-            logger.warning(f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters.")
-            content = content[:max_size] + "\\n... (truncated)"
-        
-        # Get static analysis issues
-        logger.info("🔍 Checking for code issues...")
-        sonar_issues = get_static_analysis_issues(file_path)
-        
-        if sonar_issues:
-            logger.info(f"⚠️  Found {len(sonar_issues)} code issues")
-            if args.verbose:
-                for issue in sonar_issues:
-                    logger.debug(f"  - Line {issue.get('line', 'N/A')}: {issue.get('message', 'No message')}")
-            
-            if args.verbose:
-                logger.debug(f"📁 File: {file_path}")
-                logger.debug(f"📏 Size: {len(content)} characters")
-                logger.debug(f"🔤 First 200 chars: {content[:200]}...")
-            
-            # Override streaming if output file is specified
-            is_streaming = args.stream and not args.output
-            
-            # Analyze with Ollama
-            response = await analyze_file_with_ollama_async(args.host, args.model, file_path, content, is_streaming, sonar_issues, args.output)
-            
-            # Save to markdown if output flag is specified
-            if args.output and response:
-                output_filename = generate_output_filename(file_path)
-                save_to_markdown(output_filename, response, file_path, args.output_dir)
-        else:
-            logger.info("✅ No code issues detected - Analysis skipped")
-    else:
-        # Multiple files mode
-        await process_multiple_files_async(args.host, args.model, valid_files, args.output, args.concurrent, args.output_dir)
-    
-    return 0
 
 
 def main():
@@ -559,7 +523,7 @@ def main():
               python cli_file.py src/utils.js           # Analyze a JavaScript file
               python cli_file.py config/settings.json   # Analyze a JSON file
               python cli_file.py mycode.py -o           # Save analysis to markdown
-              python cli_file.py src/*.py --async --concurrent 5  # Async mode with 5 concurrent requests
+              python cli_file.py src/*.py --concurrent 5        # Multiple files (auto-async) with 5 concurrent requests
         """
     )
 
@@ -575,10 +539,8 @@ def main():
                        help='Save the analysis to a markdown file')
     parser.add_argument('--output-dir', type=str,
                         help='Directory to save markdown files (created if not exists)')
-    parser.add_argument('--async', dest='use_async', action='store_true',
-                       help='Use asynchronous mode (useful for multiple files)')
-    parser.add_argument('--concurrent', type=int, default=3,
-                       help='Maximum number of concurrent requests in async mode (default: 3)')
+    parser.add_argument('--concurrent', type=int, default=4,
+                       help='Maximum number of concurrent requests in async mode (default: 4)')
 
     args = parser.parse_args()
 
@@ -616,14 +578,13 @@ def main():
         logger.error("❌ No valid files to analyze.")
         return 1
 
-    # Force async mode for multiple files
-    if len(valid_files) > 1 and not args.use_async:
-        logger.info(f"ℹ️  Multiple files detected, enabling async mode automatically...")
-        args.use_async = True
-
-    if args.use_async:
+    # Auto-enable async mode for multiple files
+    use_async = len(valid_files) > 1
+    
+    if use_async:
         logger.info(f"🚀 Analyzing {len(valid_files)} file(s) in async mode with max {args.concurrent} concurrent requests...")
-        return asyncio.run(main_async(args, valid_files))
+        asyncio.run(process_multiple_files_async(args.host, args.model, valid_files, args.output, args.concurrent, args.output_dir, args.stream))
+        return 0
     else:
         # Single file sync mode
         file_path = valid_files[0]

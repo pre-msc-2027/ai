@@ -34,7 +34,6 @@ python cli.py "Your prompt here" [options]
 - `-m, --model MODEL` - Model to use (default: mistral:latest)
 - `--stream` - Enable streaming output
 - `-v, --verbose` - Enable verbose output (debug logs)
-- `--async` - Use asynchronous mode
 
 **Examples:**
 ```bash
@@ -46,9 +45,6 @@ poetry run python cli.py "Explain Docker" -m llama3:8b --host http://localhost:1
 
 # Streaming mode
 poetry run python cli.py "Write a function to sort a list" --stream
-
-# Async mode
-poetry run python cli.py "Explain machine learning" --async
 
 # Verbose mode (shows debug logs)
 poetry run python cli.py "Debug this code" --verbose
@@ -73,15 +69,14 @@ python cli_file.py file1 [file2 ...] [options]
 - `-v, --verbose` - Enable verbose output
 - `-o, --output` - Save analysis to markdown files
 - `--output-dir DIR` - Directory to save markdown files (created if not exists)
-- `--async` - Force asynchronous mode (auto-enabled for multiple files)
-- `--concurrent N` - Max concurrent requests in async mode (default: 3)
+- `--concurrent N` - Max concurrent requests for multiple files (default: 4)
 
 **Examples:**
 ```bash
 # Analyze single file
 poetry run python cli_file.py main.py
 
-# Analyze multiple files (auto-async)
+# Analyze multiple files (automatically uses async mode)
 poetry run python cli_file.py src/*.py
 
 # Save to markdown

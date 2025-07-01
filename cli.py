@@ -4,16 +4,15 @@ Ollama AI CLI Tool - Simple POC using Ollama
 """
 
 import argparse
-import asyncio
 import logging
-from ollama import Client, AsyncClient
+from ollama import Client
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-def send_prompt_sync(host, model, prompt, is_streaming):
-    """Send prompt synchronously using the standard Client"""
+def send_prompt(host, model, prompt, is_streaming):
+    """Send prompt to Ollama using the standard Client"""
     try:
         # Configure Ollama client with external URL
         client = Client(host=host)
@@ -45,38 +44,6 @@ def send_prompt_sync(host, model, prompt, is_streaming):
         logger.error(f"Error communicating with Ollama: {e}")
 
 
-async def send_prompt_async(host, model, prompt, is_streaming):
-    """Send prompt asynchronously using AsyncClient"""
-    try:
-        # Configure Ollama client with external URL
-        client = AsyncClient(host=host)
-
-        # Send prompt to Ollama
-        response = await client.chat(
-            model=model,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': 'You are a code analysis assistant. Provide detailed and structured analysis of repositories.'
-                },
-                {
-                    'role': 'user',
-                    'content': prompt
-                }
-            ],
-            stream=is_streaming
-        )
-
-        if is_streaming:
-            async for chunk in response:
-                print(chunk['message']['content'], end='', flush=True)
-        else:
-            # Extract and display response
-            if 'message' in response and 'content' in response['message']:
-                print(response['message']['content'])
-    except Exception as e:
-        logger.error(f"Error communicating with Ollama: {e}")
-
 
 def main():
     parser = argparse.ArgumentParser(
@@ -84,10 +51,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
             Examples:
-              python cli.py "What is Python?"                  # Synchronous mode
-              python cli.py "What is Python?" --async          # Asynchronous mode
+              python cli.py "What is Python?"                  # Basic usage
               python cli.py "Explain Docker" --stream          # Stream output
               python cli.py "Hello" -m llama3:8b              # Use different model
+              python cli.py "Debug this code" --verbose        # Enable verbose logging
         """
     )
 
@@ -98,8 +65,6 @@ def main():
     parser.add_argument('prompt', help='Prompt to send to AI')
     parser.add_argument('--stream', action='store_true', help='Stream output')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
-    parser.add_argument('--async', dest='use_async', action='store_true', 
-                        help='Use asynchronous mode')
 
     args = parser.parse_args()
 
@@ -111,12 +76,8 @@ def main():
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    if args.use_async:
-        # Run asynchronously
-        asyncio.run(send_prompt_async(args.host, args.model, args.prompt, args.stream))
-    else:
-        # Run synchronously
-        send_prompt_sync(args.host, args.model, args.prompt, args.stream)
+    # Send prompt to Ollama
+    send_prompt(args.host, args.model, args.prompt, args.stream)
 
 
 if __name__ == "__main__":
