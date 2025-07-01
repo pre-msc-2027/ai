@@ -562,7 +562,7 @@ def main():
         """
     )
 
-    parser.add_argument('-h', '--host', default='http://10.0.0.1:11434',
+    parser.add_argument('--host', default='http://10.0.0.1:11434',
                         help='Ollama server URL (default: http://10.0.0.1:11434)')
     parser.add_argument('-m', '--model', default='mistral:latest',
                         help='Ollama model to use (default: mistral:latest)')

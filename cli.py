@@ -76,12 +76,12 @@ def main():
             Examples:
               python cli.py "What is Python?"                  # Synchronous mode
               python cli.py "What is Python?" --async          # Asynchronous mode
-              python cli.py "Explain Docker" -s                # Stream output
+              python cli.py "Explain Docker" --stream          # Stream output
               python cli.py "Hello" -m llama3:8b              # Use different model
         """
     )
 
-    parser.add_argument('-h', '--host', default='http://10.0.0.1:11434',
+    parser.add_argument('--host', default='http://10.0.0.1:11434',
                         help='Ollama server URL (default: http://10.0.0.1:11434)')
     parser.add_argument('-m', '--model', default='mistral:latest',
                         help='Ollama model to use (default: mistral:latest)')
