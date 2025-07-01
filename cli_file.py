@@ -278,68 +278,97 @@ def save_to_markdown(output_file, content, analyzed_file, output_dir=None):
         logger.error(f"❌ Error saving to file: {e}")
 
 
+def _prepare_analysis_context(file_path, content, sonar_issues):
+    """Prepare analysis context and prompt"""
+    file_ext = Path(file_path).suffix.lower()
+    language = LANGUAGE_MAP.get(file_ext, 'Unknown')
+    prompt = build_sonar_analysis_prompt(language, file_path, sonar_issues, content)
+    return language, prompt
+
+
+def _log_analysis_start(language, file_path, content, save_to_file):
+    """Log analysis start information"""
+    if not save_to_file:
+        logger.info(f"🔍 Analyzing {language} file: {file_path}")
+        logger.debug(f"📊 File size: {len(content)} characters")
+        logger.info("🤖 Sending to Ollama for analysis...")
+    else:
+        logger.info(f"🔍 Analyzing {language} file: {file_path}")
+        logger.info("🤖 Generating analysis report...")
+
+
+def _get_system_message():
+    """Get the system message for Ollama"""
+    return {
+        'role': 'system',
+        'content': 'You are a SonarQube issue resolver. Follow the exact format provided. Address ONLY the specific SonarQube issues listed. Do not provide general analysis or additional suggestions. Be precise, technical, and stick to the required structure. IMPORTANT: Format your entire response in proper Markdown syntax with appropriate headers, code blocks, lists, and emphasis.'
+    }
+
+
+def _process_streaming_response(response, save_to_file):
+    """Process streaming response from Ollama"""
+    full_response = ""
+    for chunk in response:
+        content_chunk = chunk['message']['content']
+        if not save_to_file:
+            print(content_chunk, end='', flush=True)
+        full_response += content_chunk
+    return full_response
+
+
+async def _process_async_streaming_response(response, save_to_file):
+    """Process async streaming response from Ollama"""
+    full_response = ""
+    async for chunk in response:
+        content_chunk = chunk['message']['content']
+        if not save_to_file:
+            print(content_chunk, end='', flush=True)
+        full_response += content_chunk
+    return full_response
+
+
+def _process_non_streaming_response(response, file_path, save_to_file):
+    """Process non-streaming response from Ollama"""
+    if 'message' in response and 'content' in response['message']:
+        response_content = response['message']['content']
+        if not save_to_file:
+            print("=" * 80)
+            print(f"📋 ANALYSIS REPORT FOR: {file_path}")
+            print("=" * 80)
+            print(response_content)
+            print("\\n" + "=" * 80)
+            logger.info("✅ Analysis completed!")
+        return response_content
+    else:
+        logger.error("❌ Error: No response content received from Ollama")
+        return None
+
+
 def analyze_file_with_ollama_sync(host, model, file_path, content, is_streaming, sonar_issues=None, save_to_file=False):
     """Send file content to Ollama for analysis synchronously"""
-    # Configure Ollama client with external URL
-    client = Client(host=host)
-    
-    # Get file extension for context
-    file_ext = Path(file_path).suffix.lower()
-    
-    # Determine file type for better analysis  
-    language = LANGUAGE_MAP.get(file_ext, 'Unknown')
-    
-    # Build analysis prompt
-    prompt = build_sonar_analysis_prompt(language, file_path, sonar_issues, content)
-    
     try:
-        if not save_to_file:
-            logger.info(f"🔍 Analyzing {language} file: {file_path}")
-            logger.debug(f"📊 File size: {len(content)} characters")
-            logger.info("🤖 Sending to Ollama for analysis...")
-        else:
-            logger.info(f"🔍 Analyzing {language} file: {file_path}")
-            logger.info("🤖 Generating analysis report...")
+        # Prepare analysis context
+        language, prompt = _prepare_analysis_context(file_path, content, sonar_issues)
+        _log_analysis_start(language, file_path, content, save_to_file)
+        
+        # Configure Ollama client
+        client = Client(host=host)
         
         # Send prompt to Ollama
         response = client.chat(
             model=model,
             messages=[
-                {
-                    'role': 'system',
-                    'content': 'You are a SonarQube issue resolver. Follow the exact format provided. Address ONLY the specific SonarQube issues listed. Do not provide general analysis or additional suggestions. Be precise, technical, and stick to the required structure. IMPORTANT: Format your entire response in proper Markdown syntax with appropriate headers, code blocks, lists, and emphasis.'
-                },
-                {
-                    'role': 'user',
-                    'content': prompt
-                }
+                _get_system_message(),
+                {'role': 'user', 'content': prompt}
             ],
             stream=is_streaming,
         )
 
+        # Process response
         if is_streaming:
-            full_response = ""
-            for chunk in response:
-                content_chunk = chunk['message']['content']
-                if not save_to_file:
-                    print(content_chunk, end='', flush=True)
-                full_response += content_chunk
-            return full_response
+            return _process_streaming_response(response, save_to_file)
         else:
-            # Extract and display response
-            if 'message' in response and 'content' in response['message']:
-                response_content = response['message']['content']
-                if not save_to_file:
-                    print("=" * 80)
-                    print(f"📋 ANALYSIS REPORT FOR: {file_path}")
-                    print("=" * 80)
-                    print(response_content)
-                    print("\\n" + "=" * 80)
-                    logger.info("✅ Analysis completed!")
-                return response_content
-            else:
-                logger.error("❌ Error: No response content received from Ollama")
-                return None
+            return _process_non_streaming_response(response, file_path, save_to_file)
             
     except Exception as e:
         logger.error(f"❌ Error communicating with Ollama: {e}")
@@ -348,66 +377,29 @@ def analyze_file_with_ollama_sync(host, model, file_path, content, is_streaming,
 
 async def analyze_file_with_ollama_async(host, model, file_path, content, is_streaming, sonar_issues=None, save_to_file=False):
     """Send file content to Ollama for analysis asynchronously"""
-    # Configure Ollama client with external URL
-    client = AsyncClient(host=host)
-    
-    # Get file extension for context
-    file_ext = Path(file_path).suffix.lower()
-    
-    # Determine file type for better analysis  
-    language = LANGUAGE_MAP.get(file_ext, 'Unknown')
-    
-    # Build analysis prompt
-    prompt = build_sonar_analysis_prompt(language, file_path, sonar_issues, content)
-    
     try:
-        if not save_to_file:
-            logger.info(f"🔍 Analyzing {language} file: {file_path}")
-            logger.debug(f"📊 File size: {len(content)} characters")
-            logger.info("🤖 Sending to Ollama for analysis...")
-        else:
-            logger.info(f"🔍 Analyzing {language} file: {file_path}")
-            logger.info("🤖 Generating analysis report...")
+        # Prepare analysis context
+        language, prompt = _prepare_analysis_context(file_path, content, sonar_issues)
+        _log_analysis_start(language, file_path, content, save_to_file)
+        
+        # Configure Ollama client
+        client = AsyncClient(host=host)
         
         # Send prompt to Ollama asynchronously
         response = await client.chat(
             model=model,
             messages=[
-                {
-                    'role': 'system',
-                    'content': 'You are a SonarQube issue resolver. Follow the exact format provided. Address ONLY the specific SonarQube issues listed. Do not provide general analysis or additional suggestions. Be precise, technical, and stick to the required structure. IMPORTANT: Format your entire response in proper Markdown syntax with appropriate headers, code blocks, lists, and emphasis.'
-                },
-                {
-                    'role': 'user',
-                    'content': prompt
-                }
+                _get_system_message(),
+                {'role': 'user', 'content': prompt}
             ],
             stream=is_streaming,
         )
 
+        # Process response
         if is_streaming:
-            full_response = ""
-            async for chunk in response:
-                content_chunk = chunk['message']['content']
-                if not save_to_file:
-                    print(content_chunk, end='', flush=True)
-                full_response += content_chunk
-            return full_response
+            return await _process_async_streaming_response(response, save_to_file)
         else:
-            # Extract and display response
-            if 'message' in response and 'content' in response['message']:
-                response_content = response['message']['content']
-                if not save_to_file:
-                    print("=" * 80)
-                    print(f"📋 ANALYSIS REPORT FOR: {file_path}")
-                    print("=" * 80)
-                    print(response_content)
-                    print("\\n" + "=" * 80)
-                    logger.info("✅ Analysis completed!")
-                return response_content
-            else:
-                logger.error("❌ Error: No response content received from Ollama")
-                return None
+            return _process_non_streaming_response(response, file_path, save_to_file)
             
     except Exception as e:
         logger.error(f"❌ Error communicating with Ollama: {e}")
