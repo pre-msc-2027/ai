@@ -153,6 +153,78 @@ class TestArgumentParsing:
         assert args.verbose == True
 
 
+class TestMainFunction:
+    """Test the main() function and CLI integration"""
+    
+    @patch('cli.send_prompt')
+    @patch('sys.argv', ['cli.py', 'Test prompt'])
+    def test_main_basic_usage(self, mock_send_prompt):
+        """Test main function with basic arguments"""
+        from cli import main
+        
+        main()
+        
+        # Verify send_prompt was called with default values
+        mock_send_prompt.assert_called_once_with(
+            'http://10.0.0.1:11434',  # default host
+            'mistral:latest',         # default model  
+            'Test prompt',            # prompt
+            False                     # default stream=False
+        )
+    
+    @patch('cli.send_prompt')
+    @patch('sys.argv', ['cli.py', 'Test prompt', '--host', 'http://localhost:11434', '--model', 'llama3:8b', '--stream', '--verbose'])
+    @patch('cli.logging.basicConfig')
+    def test_main_with_all_options(self, mock_logging, mock_send_prompt):
+        """Test main function with all options"""
+        from cli import main
+        
+        main()
+        
+        # Verify send_prompt was called with specified values
+        mock_send_prompt.assert_called_once_with(
+            'http://localhost:11434',  # specified host
+            'llama3:8b',              # specified model
+            'Test prompt',            # prompt
+            True                      # stream=True
+        )
+        
+        # Verify logging was configured for verbose mode
+        mock_logging.assert_called_once()
+        call_args = mock_logging.call_args[1]
+        assert call_args['level'] == 10  # logging.DEBUG
+    
+    @patch('cli.send_prompt')
+    @patch('sys.argv', ['cli.py', 'Test prompt', '--verbose'])
+    @patch('cli.logging.basicConfig')
+    def test_main_verbose_logging(self, mock_logging, mock_send_prompt):
+        """Test main function configures verbose logging"""
+        from cli import main
+        
+        main()
+        
+        # Verify logging configuration for verbose mode
+        mock_logging.assert_called_once()
+        call_args = mock_logging.call_args[1]
+        assert call_args['level'] == 10  # logging.DEBUG
+        assert '[%(asctime)s]' in call_args['format']
+        assert '%Y-%m-%d %H:%M:%S' == call_args['datefmt']
+    
+    @patch('cli.send_prompt')
+    @patch('sys.argv', ['cli.py', 'Test prompt'])
+    @patch('cli.logging.basicConfig')
+    def test_main_quiet_logging(self, mock_logging, mock_send_prompt):
+        """Test main function configures quiet logging by default"""
+        from cli import main
+        
+        main()
+        
+        # Verify logging configuration for quiet mode
+        mock_logging.assert_called_once()
+        call_args = mock_logging.call_args[1]
+        assert call_args['level'] == 30  # logging.WARNING
+
+
 class TestIntegration:
     """Integration tests for cli.py"""
     

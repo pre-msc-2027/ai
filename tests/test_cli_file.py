@@ -21,6 +21,7 @@ from cli_file import (
     save_to_markdown,
     analyze_file_with_ollama_sync,
     analyze_file_with_ollama_async,
+    process_multiple_files_async,
     # New helper functions
     _create_argument_parser,
     _configure_logging,
@@ -124,6 +125,12 @@ class TestFileOperations:
     def test_read_file_content_permission_error(self, mock_file):
         """Test reading file with permission error"""
         content = read_file_content("restricted_file.py")
+        assert content is None
+    
+    @patch('builtins.open', side_effect=OSError("Disk full"))
+    def test_read_file_content_generic_error(self, mock_file):
+        """Test reading file with generic exception"""
+        content = read_file_content("problematic_file.py")
         assert content is None
     
     def test_generate_output_filename(self):
@@ -351,6 +358,12 @@ class TestCheckerFunctions:
         assert result['type'] == 'code_smell'
         assert result['severity'] == 'MINOR'
         assert 'json' in result['message']
+    
+    def test_check_unused_imports_malformed(self):
+        """Test unused import detection with malformed import line"""
+        content = "print('hello')"
+        result = check_unused_imports("import", 1, content, "test.py")  # Malformed import
+        assert result is None  # Should handle IndexError gracefully
 
 
 class TestMainHelperFunctions:
@@ -591,6 +604,7 @@ class TestIntegration:
     
     @patch('cli_file.analyze_file_with_ollama_sync')
     @patch('cli_file.get_static_analysis_issues')
+    @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
     def test_single_file_workflow_no_issues(self, mock_get_issues, mock_analyze):
         """Test complete workflow for single file without issues"""
         # Setup mocks
@@ -723,3 +737,335 @@ except:
             assert len(password_issues) > 0
         finally:
             os.unlink(temp_file)
+
+
+class TestAsyncProcessing:
+    """Test async processing functions that weren't covered"""
+    
+    @pytest.mark.asyncio
+    @patch('cli_file.analyze_file_with_ollama_async')
+    @patch('cli_file.get_static_analysis_issues')
+    @patch('cli_file.read_file_content')
+    async def test_process_multiple_files_async_with_issues(self, mock_read, mock_get_issues, mock_analyze):
+        """Test process_multiple_files_async with files that have issues"""
+        
+        # Setup mocks
+        mock_read.side_effect = ["print('file1')", "print('file2')"]
+        mock_get_issues.side_effect = [
+            [{'line': 1, 'message': 'issue1'}],  # file1 has issues
+            [{'line': 1, 'message': 'issue2'}]   # file2 has issues
+        ]
+        mock_analyze.return_value = "Analysis result"
+        
+        # Test the function
+        results = await process_multiple_files_async(
+            host="http://localhost:11434",
+            model="test-model", 
+            file_paths=["file1.py", "file2.py"],
+            save_output=False,
+            max_concurrent=2,
+            stream_enabled=False
+        )
+        
+        # Verify results
+        assert len(results) == 2
+        assert all(r == "Analysis result" for r in results)
+        assert mock_analyze.call_count == 2
+    
+    @pytest.mark.asyncio
+    @patch('cli_file.get_static_analysis_issues')
+    @patch('cli_file.read_file_content')
+    async def test_process_multiple_files_async_no_issues(self, mock_read, mock_get_issues):
+        """Test process_multiple_files_async with files that have no issues"""
+        # Setup mocks
+        mock_read.side_effect = ["# clean file1", "# clean file2"]
+        mock_get_issues.side_effect = [[], []]  # No issues
+        
+        # Test the function
+        results = await process_multiple_files_async(
+            host="http://localhost:11434",
+            model="test-model",
+            file_paths=["file1.py", "file2.py"],
+            save_output=False,
+            max_concurrent=2
+        )
+        
+        # Verify results - should be None for files with no issues
+        assert len(results) == 2
+        assert all(r is None for r in results)
+    
+    @pytest.mark.asyncio
+    @patch('cli_file.read_file_content')
+    async def test_process_multiple_files_async_read_error(self, mock_read):
+        """Test process_multiple_files_async with file read errors"""
+        # Setup mock to return None (read error)
+        mock_read.side_effect = [None, None]
+        
+        # Test the function
+        results = await process_multiple_files_async(
+            host="http://localhost:11434",
+            model="test-model",
+            file_paths=["bad1.py", "bad2.py"],
+            save_output=False
+        )
+        
+        # Verify results - should be None for unreadable files
+        assert len(results) == 2
+        assert all(r is None for r in results)
+    
+    @pytest.mark.asyncio
+    @patch('cli_file.save_to_markdown')
+    @patch('cli_file.analyze_file_with_ollama_async')
+    @patch('cli_file.get_static_analysis_issues')
+    @patch('cli_file.read_file_content')
+    @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
+    async def test_process_multiple_files_async_with_save(self, mock_read, mock_get_issues, mock_analyze, mock_save):
+        """Test process_multiple_files_async with save_output=True"""
+        
+        # Setup mocks
+        mock_read.return_value = "print('test')"
+        mock_get_issues.return_value = [{'line': 1, 'message': 'test issue'}]
+        mock_analyze.return_value = "Analysis result"
+        
+        # Test with save_output=True
+        results = await process_multiple_files_async(
+            host="http://localhost:11434",
+            model="test-model",
+            file_paths=["test.py"],
+            save_output=True,
+            output_dir="/tmp/output"
+        )
+        
+        # Verify save was called
+        assert len(results) == 1
+        assert results[0] == "Analysis result"
+        mock_save.assert_called_once()
+    
+    @pytest.mark.asyncio
+    @patch('cli_file.analyze_file_with_ollama_async')
+    @patch('cli_file.get_static_analysis_issues') 
+    @patch('cli_file.read_file_content')
+    async def test_process_multiple_files_async_large_file(self, mock_read, mock_get_issues, mock_analyze):
+        """Test process_multiple_files_async with large file truncation"""
+        
+        # Setup large file content (> 100KB)
+        large_content = "x" * 150000  # 150KB
+        mock_read.return_value = large_content
+        mock_get_issues.return_value = [{'line': 1, 'message': 'test issue'}]
+        mock_analyze.return_value = "Analysis result"
+        
+        # Test the function
+        results = await process_multiple_files_async(
+            host="http://localhost:11434",
+            model="test-model",
+            file_paths=["large_file.py"],
+            save_output=False
+        )
+        
+        # Verify file was processed and truncated content was passed to analyzer
+        assert len(results) == 1
+        assert results[0] == "Analysis result"
+        
+        # Check that analyze was called with truncated content
+        # analyze_file_with_ollama_async(host, model, file_path, content, is_streaming, sonar_issues, save_output)
+        call_args = mock_analyze.call_args[0]  # Positional arguments
+        truncated_content = call_args[3]  # 4th argument is content
+        assert len(truncated_content) <= 100000 + 20  # 100KB + "... (truncated)"
+        assert "... (truncated)" in truncated_content
+    
+    @pytest.mark.asyncio
+    @patch('cli_file.analyze_file_with_ollama_async')
+    @patch('cli_file.get_static_analysis_issues')
+    @patch('cli_file.read_file_content')
+    async def test_process_multiple_files_async_streaming(self, mock_read, mock_get_issues, mock_analyze):
+        """Test process_multiple_files_async with streaming enabled"""
+        
+        # Setup mocks
+        mock_read.return_value = "print('test')"
+        mock_get_issues.return_value = [{'line': 1, 'message': 'test issue'}]
+        mock_analyze.return_value = "Analysis result"
+        
+        # Test with streaming enabled and no save_output
+        await process_multiple_files_async(
+            host="http://localhost:11434",
+            model="test-model",
+            file_paths=["test.py"],
+            save_output=False,
+            stream_enabled=True
+        )
+        
+        # Verify analyze was called with streaming=True
+        # analyze_file_with_ollama_async(host, model, file_path, content, is_streaming, sonar_issues, save_output)
+        call_args = mock_analyze.call_args[0]  # Positional arguments
+        assert call_args[4] == True  # 5th argument is is_streaming
+        
+        # Test with streaming enabled but save_output=True (should disable streaming)
+        await process_multiple_files_async(
+            host="http://localhost:11434",
+            model="test-model", 
+            file_paths=["test.py"],
+            save_output=True,
+            stream_enabled=True
+        )
+        
+        # Verify analyze was called with streaming=False when saving output
+        call_args = mock_analyze.call_args[0]  # Positional arguments
+        assert call_args[4] == False  # 5th argument is is_streaming
+
+
+class TestMainCliFile:
+    """Test the main() function of cli_file.py"""
+    
+    @patch('cli_file._process_single_file')
+    @patch('cli_file._validate_files')
+    @patch('cli_file._expand_file_patterns')
+    @patch('cli_file._configure_logging')
+    @patch('cli_file._create_argument_parser')
+    @patch('sys.argv', ['cli_file.py', 'test.py'])
+    def test_main_single_file_success(self, mock_parser, mock_logging, mock_expand, mock_validate, mock_process_single):
+        """Test main() with single file processing"""
+        from cli_file import main
+        
+        # Setup mocks
+        mock_args = Mock()
+        mock_args.verbose = False
+        mock_args.file = ['test.py']
+        
+        mock_parser.return_value.parse_args.return_value = mock_args
+        mock_expand.return_value = ['test.py']
+        mock_validate.return_value = ['test.py']  # Single valid file
+        mock_process_single.return_value = 0
+        
+        # Test main function
+        result = main()
+        
+        # Verify workflow
+        assert result == 0
+        mock_parser.assert_called_once()
+        mock_logging.assert_called_once_with(False)
+        mock_expand.assert_called_once_with(['test.py'])
+        mock_validate.assert_called_once_with(['test.py'])
+        mock_process_single.assert_called_once_with(mock_args, 'test.py')
+    
+    @patch('cli_file._process_multiple_files')
+    @patch('cli_file._validate_files')
+    @patch('cli_file._expand_file_patterns')
+    @patch('cli_file._configure_logging')
+    @patch('cli_file._create_argument_parser')
+    @patch('sys.argv', ['cli_file.py', 'file1.py', 'file2.py'])
+    def test_main_multiple_files_success(self, mock_parser, mock_logging, mock_expand, mock_validate, mock_process_multiple):
+        """Test main() with multiple files processing"""
+        from cli_file import main
+        
+        # Setup mocks
+        mock_args = Mock()
+        mock_args.verbose = True
+        mock_args.file = ['file1.py', 'file2.py']
+        
+        mock_parser.return_value.parse_args.return_value = mock_args
+        mock_expand.return_value = ['file1.py', 'file2.py']
+        mock_validate.return_value = ['file1.py', 'file2.py']  # Multiple valid files
+        mock_process_multiple.return_value = 0
+        
+        # Test main function
+        result = main()
+        
+        # Verify workflow
+        assert result == 0
+        mock_parser.assert_called_once()
+        mock_logging.assert_called_once_with(True)  # Verbose mode
+        mock_expand.assert_called_once_with(['file1.py', 'file2.py'])
+        mock_validate.assert_called_once_with(['file1.py', 'file2.py'])
+        mock_process_multiple.assert_called_once_with(mock_args, ['file1.py', 'file2.py'])
+    
+    @patch('cli_file._validate_files')
+    @patch('cli_file._expand_file_patterns')
+    @patch('cli_file._configure_logging')
+    @patch('cli_file._create_argument_parser')
+    @patch('sys.argv', ['cli_file.py', 'nonexistent.py'])
+    def test_main_no_valid_files(self, mock_parser, mock_logging, mock_expand, mock_validate):
+        """Test main() when no valid files are found"""
+        from cli_file import main
+        
+        # Setup mocks
+        mock_args = Mock()
+        mock_args.verbose = False
+        mock_args.file = ['nonexistent.py']
+        
+        mock_parser.return_value.parse_args.return_value = mock_args
+        mock_expand.return_value = ['nonexistent.py']
+        mock_validate.return_value = None  # No valid files
+        
+        # Test main function
+        result = main()
+        
+        # Verify error handling
+        assert result == 1
+        mock_parser.assert_called_once()
+        mock_logging.assert_called_once_with(False)
+        mock_expand.assert_called_once_with(['nonexistent.py'])
+        mock_validate.assert_called_once_with(['nonexistent.py'])
+    
+    @patch('cli_file._process_single_file')
+    @patch('cli_file._validate_files')
+    @patch('cli_file._expand_file_patterns')
+    @patch('cli_file._configure_logging')
+    @patch('cli_file._create_argument_parser')
+    @patch('sys.argv', ['cli_file.py', '*.py', '--verbose'])
+    def test_main_with_glob_patterns(self, mock_parser, mock_logging, mock_expand, mock_validate, mock_process_single):
+        """Test main() with glob patterns"""
+        from cli_file import main
+        
+        # Setup mocks
+        mock_args = Mock()
+        mock_args.verbose = True
+        mock_args.file = ['*.py']
+        
+        mock_parser.return_value.parse_args.return_value = mock_args
+        mock_expand.return_value = ['file1.py', 'file2.py', 'file3.py']  # Glob expanded
+        mock_validate.return_value = ['file1.py']  # Only one valid after validation
+        mock_process_single.return_value = 0
+        
+        # Test main function
+        result = main()
+        
+        # Verify glob handling and fallback to single file processing
+        assert result == 0
+        mock_expand.assert_called_once_with(['*.py'])
+        mock_validate.assert_called_once_with(['file1.py', 'file2.py', 'file3.py'])
+        mock_process_single.assert_called_once_with(mock_args, 'file1.py')
+    
+    @patch('cli_file._process_multiple_files')
+    @patch('cli_file._validate_files')
+    @patch('cli_file._expand_file_patterns')
+    @patch('cli_file._configure_logging')
+    @patch('cli_file._create_argument_parser')
+    @patch('sys.argv', ['cli_file.py', 'src/*.py', '--concurrent', '8'])
+    def test_main_integration_workflow(self, mock_parser, mock_logging, mock_expand, mock_validate, mock_process_multiple):
+        """Test main() complete integration workflow"""
+        from cli_file import main
+        
+        # Setup realistic mocks
+        mock_args = Mock()
+        mock_args.verbose = False
+        mock_args.file = ['src/*.py']
+        mock_args.concurrent = 8
+        
+        mock_parser.return_value.parse_args.return_value = mock_args
+        mock_expand.return_value = ['src/module1.py', 'src/module2.py', 'src/utils.py']
+        mock_validate.return_value = ['src/module1.py', 'src/module2.py']  # 2 valid files
+        mock_process_multiple.return_value = 0
+        
+        # Test main function
+        result = main()
+        
+        # Verify complete workflow
+        assert result == 0
+        
+        # Verify each step was called correctly
+        mock_parser.assert_called_once()
+        mock_parser.return_value.parse_args.assert_called_once()
+        mock_logging.assert_called_once_with(False)
+        mock_expand.assert_called_once_with(['src/*.py'])
+        mock_validate.assert_called_once_with(['src/module1.py', 'src/module2.py', 'src/utils.py'])
+        mock_process_multiple.assert_called_once_with(mock_args, ['src/module1.py', 'src/module2.py'])
