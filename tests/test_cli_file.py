@@ -6,7 +6,7 @@ import pytest
 import os
 import tempfile
 import logging
-from unittest.mock import Mock, AsyncMock, patch, mock_open
+from unittest.mock import Mock, patch, mock_open
 from pathlib import Path
 import asyncio
 from datetime import datetime
@@ -236,6 +236,7 @@ class TestOllamaIntegration:
     async def test_analyze_file_with_ollama_async_non_streaming(self, mock_client_class, temp_file, sample_static_issues):
         """Test asynchronous Ollama analysis without streaming"""
         # Setup mock
+        from unittest.mock import AsyncMock
         mock_client = AsyncMock()
         mock_client.chat.return_value = {
             'message': {'content': 'Mock async analysis response'}
@@ -519,6 +520,7 @@ class TestMainHelperFunctions:
     
     @patch('cli_file.read_file_content')
     @patch('cli_file.get_static_analysis_issues')
+    @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
     def test_process_single_file_no_issues(self, mock_get_issues, mock_read_content):
         """Test single file processing with no issues"""
         mock_args = Mock()
@@ -558,3 +560,166 @@ class TestIntegration:
             
             assert len(valid_files) == 1
             assert valid_files[0] == valid_file
+    
+    @patch('cli_file.analyze_file_with_ollama_sync')
+    @patch('cli_file.get_static_analysis_issues')
+    def test_single_file_workflow_with_issues(self, mock_get_issues, mock_analyze):
+        """Test complete workflow for single file with issues"""
+        # Setup mocks
+        mock_get_issues.return_value = [
+            {'line': 1, 'type': 'code_smell', 'severity': 'MINOR', 'message': 'Test issue'}
+        ]
+        mock_analyze.return_value = "Analysis result"
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write("print('test')")
+            temp_file = f.name
+        
+        try:
+            # Create parser and parse args
+            parser = _create_argument_parser()
+            args = parser.parse_args([temp_file])
+            
+            # Process single file
+            result = _process_single_file(args, temp_file)
+            
+            assert result == 0
+            mock_get_issues.assert_called_once_with(temp_file)
+            mock_analyze.assert_called_once()
+        finally:
+            os.unlink(temp_file)
+    
+    @patch('cli_file.analyze_file_with_ollama_sync')
+    @patch('cli_file.get_static_analysis_issues')
+    def test_single_file_workflow_no_issues(self, mock_get_issues, mock_analyze):
+        """Test complete workflow for single file without issues"""
+        # Setup mocks
+        mock_get_issues.return_value = []  # No issues
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write("# Clean code")
+            temp_file = f.name
+        
+        try:
+            # Create parser and parse args
+            parser = _create_argument_parser()
+            args = parser.parse_args([temp_file])
+            
+            # Process single file
+            result = _process_single_file(args, temp_file)
+            
+            assert result == 0
+            mock_get_issues.assert_called_once_with(temp_file)
+            # Analyze should NOT be called when no issues
+            mock_analyze.assert_not_called()
+        finally:
+            os.unlink(temp_file)
+    
+    @patch('cli_file.asyncio.run')
+    @patch('cli_file.process_multiple_files_async')
+    def test_multiple_files_workflow(self, mock_process_async, mock_asyncio_run):
+        """Test complete workflow for multiple files"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create test files
+            file1 = os.path.join(temp_dir, "file1.py")
+            file2 = os.path.join(temp_dir, "file2.py")
+            
+            for f in [file1, file2]:
+                with open(f, 'w') as fd:
+                    fd.write("# Test file")
+            
+            # Create parser and parse args
+            parser = _create_argument_parser()
+            args = parser.parse_args([file1, file2, '--concurrent', '2'])
+            
+            # Process multiple files
+            result = _process_multiple_files(args, [file1, file2])
+            
+            assert result == 0
+            mock_asyncio_run.assert_called_once()
+            assert mock_process_async.called
+    
+    @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
+    def test_output_to_markdown_workflow(self):
+        """Test complete workflow with markdown output"""
+        with patch('cli_file.save_to_markdown') as mock_save, \
+             patch('cli_file.analyze_file_with_ollama_sync') as mock_analyze, \
+             patch('cli_file.get_static_analysis_issues') as mock_get_issues:
+            
+            # Setup mocks explicitly as regular Mock objects
+            mock_get_issues.return_value = [
+                {'line': 1, 'type': 'code_smell', 'severity': 'MINOR', 'message': 'Test issue'}
+            ]
+            mock_analyze.return_value = "# Analysis Report\n\nTest analysis"
+            
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+                f.write("print('test')")
+                temp_file = f.name
+            
+            try:
+                # Create parser with output flag
+                parser = _create_argument_parser()
+                args = parser.parse_args([temp_file, '--output'])
+                
+                # Process file
+                result = _process_single_file(args, temp_file)
+                
+                assert result == 0
+                mock_save.assert_called_once()
+                # Verify save was called with correct arguments
+                save_args = mock_save.call_args[0]
+                assert save_args[1] == "# Analysis Report\n\nTest analysis"  # content
+                assert save_args[2] == temp_file  # analyzed_file
+            finally:
+                os.unlink(temp_file)
+    
+    @patch('glob.glob')
+    def test_glob_pattern_workflow(self, mock_glob):
+        """Test complete workflow with glob patterns"""
+        # Mock glob to return specific files
+        mock_glob.return_value = ['src/file1.py', 'src/file2.py']
+        
+        # Test expansion
+        expanded = _expand_file_patterns(['src/*.py'])
+        
+        assert len(expanded) == 2
+        assert 'src/file1.py' in expanded
+        assert 'src/file2.py' in expanded
+        mock_glob.assert_called_once_with('src/*.py')
+    
+    def test_end_to_end_static_analysis(self):
+        """Test end-to-end static analysis detection"""
+        # Create a file with known issues
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write("""import unused_module
+# TODO: Fix this later
+print("Debug message")
+password="hardcoded123"
+try:
+    risky_operation()
+except:
+    pass
+""")
+            temp_file = f.name
+        
+        try:
+            # Run static analysis
+            issues = get_static_analysis_issues(temp_file)
+            
+            # Verify all issue types are detected
+            issue_types = {issue['type'] for issue in issues}
+            assert 'code_smell' in issue_types  # TODO and print
+            assert 'vulnerability' in issue_types  # hardcoded password
+            assert 'bug' in issue_types  # empty except
+            
+            # Verify specific issues
+            todo_issues = [i for i in issues if 'TODO' in i['message']]
+            assert len(todo_issues) > 0
+            
+            print_issues = [i for i in issues if 'logger' in i['message']]
+            assert len(print_issues) > 0
+            
+            password_issues = [i for i in issues if 'credential' in i['message']]
+            assert len(password_issues) > 0
+        finally:
+            os.unlink(temp_file)
