@@ -5,6 +5,7 @@ Tests for cli_file.py functionality
 import pytest
 import os
 import tempfile
+import logging
 from unittest.mock import Mock, AsyncMock, patch, mock_open
 from pathlib import Path
 import asyncio
@@ -19,7 +20,21 @@ from cli_file import (
     generate_output_filename,
     save_to_markdown,
     analyze_file_with_ollama_sync,
-    analyze_file_with_ollama_async
+    analyze_file_with_ollama_async,
+    # New helper functions
+    _create_argument_parser,
+    _configure_logging,
+    _expand_file_patterns,
+    _validate_files,
+    _process_multiple_files,
+    _process_single_file,
+    # New checker functions
+    check_todo_comments,
+    check_print_statements,
+    check_long_lines,
+    check_empty_catch_blocks,
+    check_hardcoded_credentials,
+    check_unused_imports
 )
 
 
@@ -269,17 +284,269 @@ class TestOllamaIntegration:
         assert response is None
 
 
-class TestArgumentParsing:
-    """Test argument parsing and validation"""
+class TestCheckerFunctions:
+    """Test individual checker functions for static analysis"""
     
-    def test_main_with_valid_file(self, temp_file):
-        """Test main function with valid file"""
-        # This would require more complex mocking of sys.argv
-        # For now, we test the components individually
-        assert os.path.exists(temp_file)
+    def test_check_todo_comments_found(self):
+        """Test TODO comment detection"""
+        result = check_todo_comments("# TODO: Fix this later", 5)
+        assert result is not None
+        assert result['line'] == 5
+        assert result['type'] == 'code_smell'
+        assert result['severity'] == 'INFO'
+        assert 'TODO' in result['message']
     
-    def test_file_filtering(self):
-        """Test file existence filtering"""
+    def test_check_todo_comments_not_found(self):
+        """Test when no TODO comments"""
+        result = check_todo_comments("# Regular comment", 1)
+        assert result is None
+    
+    def test_check_print_statements_python(self):
+        """Test print statement detection in Python files"""
+        result = check_print_statements("print('Hello world')", 10, "test.py")
+        assert result is not None
+        assert result['line'] == 10
+        assert result['type'] == 'code_smell'
+        assert result['severity'] == 'MINOR'
+    
+    def test_check_print_statements_non_python(self):
+        """Test print statement ignored in non-Python files"""
+        result = check_print_statements("print('Hello')", 1, "test.js")
+        assert result is None
+    
+    def test_check_long_lines(self):
+        """Test long line detection"""
+        long_line = "x" * 150  # Create a line longer than 120 chars
+        result = check_long_lines(long_line, 3)
+        assert result is not None
+        assert result['line'] == 3
+        assert result['type'] == 'code_smell'
+        assert result['severity'] == 'MINOR'
+        assert "120 characters" in result['message']
+    
+    def test_check_long_lines_ok(self):
+        """Test short line passes"""
+        result = check_long_lines("short line", 1)
+        assert result is None
+    
+    def test_check_hardcoded_credentials(self):
+        """Test hardcoded credential detection"""
+        result = check_hardcoded_credentials("password='secret123'", 8)
+        assert result is not None
+        assert result['line'] == 8
+        assert result['type'] == 'vulnerability'
+        assert result['severity'] == 'BLOCKER'
+    
+    def test_check_hardcoded_credentials_comment(self):
+        """Test credentials in comments are ignored"""
+        result = check_hardcoded_credentials("# password='example'", 1)
+        assert result is None
+    
+    def test_check_unused_imports(self):
+        """Test unused import detection"""
+        content = "import json\nprint('hello')"  # json not used
+        result = check_unused_imports("import json", 1, content, "test.py")
+        assert result is not None
+        assert result['type'] == 'code_smell'
+        assert result['severity'] == 'MINOR'
+        assert 'json' in result['message']
+
+
+class TestMainHelperFunctions:
+    """Test the new helper functions from main() refactoring"""
+    
+    def test_create_argument_parser(self):
+        """Test argument parser creation"""
+        parser = _create_argument_parser()
+        
+        # Test default values
+        args = parser.parse_args(['test.py'])
+        assert args.host == 'http://10.0.0.1:11434'
+        assert args.model == 'mistral:latest'
+        assert args.file == ['test.py']
+        assert args.stream == False
+        assert args.verbose == False
+        assert args.output == False
+        assert args.concurrent == 4
+    
+    def test_create_argument_parser_with_options(self):
+        """Test argument parser with all options"""
+        parser = _create_argument_parser()
+        
+        args = parser.parse_args([
+            'file1.py', 'file2.py',
+            '--host', 'http://localhost:11434', 
+            '--model', 'llama3:8b',
+            '--stream',
+            '--verbose',
+            '--output',
+            '--concurrent', '8'
+        ])
+        
+        assert args.host == 'http://localhost:11434'
+        assert args.model == 'llama3:8b'
+        assert args.file == ['file1.py', 'file2.py']
+        assert args.stream == True
+        assert args.verbose == True
+        assert args.output == True
+        assert args.concurrent == 8
+    
+    @patch('cli_file.logging.basicConfig')
+    def test_configure_logging_verbose(self, mock_basic_config):
+        """Test logging configuration in verbose mode"""
+        _configure_logging(True)
+        mock_basic_config.assert_called_once()
+        
+        call_args = mock_basic_config.call_args[1]
+        assert call_args['level'] == logging.DEBUG
+        assert '[%(asctime)s]' in call_args['format']
+    
+    @patch('cli_file.logging.basicConfig')
+    def test_configure_logging_quiet(self, mock_basic_config):
+        """Test logging configuration in quiet mode"""
+        _configure_logging(False)
+        mock_basic_config.assert_called_once()
+        
+        call_args = mock_basic_config.call_args[1]
+        assert call_args['level'] == logging.WARNING
+    
+    @patch('glob.glob')
+    def test_expand_file_patterns_with_glob(self, mock_glob):
+        """Test file pattern expansion with glob matches"""
+        mock_glob.return_value = ['file1.py', 'file2.py']
+        
+        result = _expand_file_patterns(['src/*.py'])
+        
+        mock_glob.assert_called_once_with('src/*.py')
+        assert result == ['file1.py', 'file2.py']
+    
+    @patch('glob.glob')
+    def test_expand_file_patterns_no_glob(self, mock_glob):
+        """Test file pattern expansion without glob matches"""
+        mock_glob.return_value = []
+        
+        result = _expand_file_patterns(['specific_file.py'])
+        
+        assert result == ['specific_file.py']
+    
+    @patch('glob.glob')
+    def test_expand_file_patterns_deduplication(self, mock_glob):
+        """Test file pattern deduplication"""
+        mock_glob.side_effect = [['file1.py'], ['file1.py', 'file2.py']]
+        
+        result = _expand_file_patterns(['pattern1', 'pattern2'])
+        
+        # Should deduplicate file1.py
+        assert result == ['file1.py', 'file2.py']
+    
+    def test_validate_files_all_valid(self):
+        """Test file validation with all valid files"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file1 = os.path.join(temp_dir, "file1.py")
+            file2 = os.path.join(temp_dir, "file2.py")
+            
+            # Create test files
+            for f in [file1, file2]:
+                with open(f, 'w') as fd:
+                    fd.write("# test")
+            
+            result = _validate_files([file1, file2])
+            assert len(result) == 2
+            assert file1 in result
+            assert file2 in result
+    
+    def test_validate_files_some_invalid(self):
+        """Test file validation with some invalid files"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            valid_file = os.path.join(temp_dir, "valid.py")
+            invalid_file = os.path.join(temp_dir, "nonexistent.py")
+            
+            # Create only one file
+            with open(valid_file, 'w') as f:
+                f.write("# test")
+            
+            result = _validate_files([valid_file, invalid_file])
+            assert len(result) == 1
+            assert result[0] == valid_file
+    
+    def test_validate_files_none_valid(self):
+        """Test file validation with no valid files"""
+        result = _validate_files(["nonexistent1.py", "nonexistent2.py"])
+        assert result is None
+    
+    @patch('cli_file.asyncio.run')
+    @patch('cli_file.process_multiple_files_async')
+    def test_process_multiple_files(self, mock_process_async, mock_asyncio_run):
+        """Test multiple files processing"""
+        mock_args = Mock()
+        mock_args.host = 'http://localhost:11434'
+        mock_args.model = 'test-model'
+        mock_args.output = False
+        mock_args.concurrent = 4
+        mock_args.output_dir = None
+        mock_args.stream = False
+        
+        files = ['file1.py', 'file2.py']
+        
+        result = _process_multiple_files(mock_args, files)
+        
+        assert result == 0
+        mock_asyncio_run.assert_called_once()
+    
+    @patch('cli_file.read_file_content')
+    @patch('cli_file.get_static_analysis_issues')
+    @patch('cli_file.analyze_file_with_ollama_sync')
+    def test_process_single_file_with_issues(self, mock_analyze, mock_get_issues, mock_read_content):
+        """Test single file processing with issues found"""
+        mock_args = Mock()
+        mock_args.verbose = False
+        mock_args.stream = False
+        mock_args.output = False
+        mock_args.host = 'http://localhost:11434'
+        mock_args.model = 'test-model'
+        mock_args.output_dir = None
+        
+        mock_read_content.return_value = "print('test')"
+        mock_get_issues.return_value = [{'line': 1, 'message': 'test issue'}]
+        mock_analyze.return_value = "Analysis result"
+        
+        result = _process_single_file(mock_args, 'test.py')
+        
+        assert result == 0
+        mock_read_content.assert_called_once_with('test.py')
+        mock_get_issues.assert_called_once_with('test.py')
+        mock_analyze.assert_called_once()
+    
+    @patch('cli_file.read_file_content')
+    @patch('cli_file.get_static_analysis_issues')
+    def test_process_single_file_no_issues(self, mock_get_issues, mock_read_content):
+        """Test single file processing with no issues"""
+        mock_args = Mock()
+        mock_read_content.return_value = "# clean code"
+        mock_get_issues.return_value = []  # No issues
+        
+        result = _process_single_file(mock_args, 'test.py')
+        
+        assert result == 0
+        mock_read_content.assert_called_once_with('test.py')
+        mock_get_issues.assert_called_once_with('test.py')
+    
+    @patch('cli_file.read_file_content')
+    def test_process_single_file_read_error(self, mock_read_content):
+        """Test single file processing with read error"""
+        mock_args = Mock()
+        mock_read_content.return_value = None  # Read error
+        
+        result = _process_single_file(mock_args, 'test.py')
+        
+        assert result == 1
+
+
+class TestIntegration:
+    """Integration tests for complete workflows"""
+    
+    def test_file_filtering_integration(self):
+        """Test complete file filtering workflow"""
         # Create some test files
         with tempfile.TemporaryDirectory() as temp_dir:
             valid_file = os.path.join(temp_dir, "valid.py")
