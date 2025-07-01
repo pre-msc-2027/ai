@@ -5,7 +5,7 @@ Tests for cli_file.py functionality
 import pytest
 import os
 import tempfile
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, AsyncMock, patch, mock_open
 from pathlib import Path
 import asyncio
 from datetime import datetime
@@ -221,10 +221,10 @@ class TestOllamaIntegration:
     async def test_analyze_file_with_ollama_async_non_streaming(self, mock_client_class, temp_file, sample_static_issues):
         """Test asynchronous Ollama analysis without streaming"""
         # Setup mock
-        mock_client = Mock()
-        mock_client.chat = Mock(return_value={
+        mock_client = AsyncMock()
+        mock_client.chat.return_value = {
             'message': {'content': 'Mock async analysis response'}
-        })
+        }
         mock_client_class.return_value = mock_client
         
         # Read file content

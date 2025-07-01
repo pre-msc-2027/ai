@@ -58,8 +58,8 @@ def get_static_analysis_issues(file_path):
             
             # Empty catch blocks (Python)
             if file_path.endswith('.py') and 'except:' in stripped_line and i < len(lines):
-                next_line = lines[i].strip() if i < len(lines) else ""
-                if next_line == "pass":
+                next_line = lines[i].strip() if i < len(lines) else ""  # lines[i] is the next line after current line i-1
+                if next_line.startswith("pass"):  # Check if line starts with 'pass'
                     issues.append({
                         'line': i,
                         'type': 'bug',
@@ -69,7 +69,7 @@ def get_static_analysis_issues(file_path):
                     })
             
             # Hardcoded credentials
-            if any(keyword in line.lower() for keyword in ['password=', 'secret=', 'api_key=', 'token=']):
+            if any(keyword in line.lower() for keyword in ['password=', 'secret=', 'api_key=', 'token=', 'secret_key']):
                 if not line.strip().startswith('#'):  # Not a comment
                     issues.append({
                         'line': i,

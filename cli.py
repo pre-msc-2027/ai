@@ -10,62 +10,68 @@ from ollama import Client, AsyncClient
 
 def send_prompt_sync(host, model, prompt, is_streaming):
     """Send prompt synchronously using the standard Client"""
-    # Configure Ollama client with external URL
-    client = Client(host=host)
+    try:
+        # Configure Ollama client with external URL
+        client = Client(host=host)
 
-    # Send prompt to Ollama
-    response = client.chat(
-        model=model,
-        messages=[
-            {
-                'role': 'system',
-                'content': 'You are a code analysis assistant. Provide detailed and structured analysis of repositories.'
-            },
-            {
-                'role': 'user',
-                'content': prompt
-            }
-        ],
-        stream=is_streaming
-    )
+        # Send prompt to Ollama
+        response = client.chat(
+            model=model,
+            messages=[
+                {
+                    'role': 'system',
+                    'content': 'You are a code analysis assistant. Provide detailed and structured analysis of repositories.'
+                },
+                {
+                    'role': 'user',
+                    'content': prompt
+                }
+            ],
+            stream=is_streaming
+        )
 
-    if is_streaming:
-        for chunk in response:
-            print(chunk['message']['content'], end='', flush=True)
-    else:
-        # Extract and display response
-        if 'message' in response and 'content' in response['message']:
-            print(response['message']['content'])
+        if is_streaming:
+            for chunk in response:
+                print(chunk['message']['content'], end='', flush=True)
+        else:
+            # Extract and display response
+            if 'message' in response and 'content' in response['message']:
+                print(response['message']['content'])
+    except Exception as e:
+        print(f"Error communicating with Ollama: {e}")
 
 
 async def send_prompt_async(host, model, prompt, is_streaming):
     """Send prompt asynchronously using AsyncClient"""
-    # Configure Ollama client with external URL
-    client = AsyncClient(host=host)
+    try:
+        # Configure Ollama client with external URL
+        client = AsyncClient(host=host)
 
-    # Send prompt to Ollama
-    response = await client.chat(
-        model=model,
-        messages=[
-            {
-                'role': 'system',
-                'content': 'You are a code analysis assistant. Provide detailed and structured analysis of repositories.'
-            },
-            {
-                'role': 'user',
-                'content': prompt
-            }
-        ],
-        stream=is_streaming
-    )
+        # Send prompt to Ollama
+        response = await client.chat(
+            model=model,
+            messages=[
+                {
+                    'role': 'system',
+                    'content': 'You are a code analysis assistant. Provide detailed and structured analysis of repositories.'
+                },
+                {
+                    'role': 'user',
+                    'content': prompt
+                }
+            ],
+            stream=is_streaming
+        )
 
-    if is_streaming:
-        async for chunk in response:
-            print(chunk['message']['content'], end='', flush=True)
-    else:
-        # Extract and display response
-        if 'message' in response and 'content' in response['message']:
-            print(response['message']['content'])
+        if is_streaming:
+            async for chunk in response:
+                print(chunk['message']['content'], end='', flush=True)
+        else:
+            # Extract and display response
+            if 'message' in response and 'content' in response['message']:
+                print(response['message']['content'])
+    except Exception as e:
+        print(f"Error communicating with Ollama: {e}")
 
 
 def main():
