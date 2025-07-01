@@ -1,205 +1,157 @@
-# 🤖 AI Code Quality Improver
+# 🤖 SecuScan AI
 
-An automated code quality improvement system that analyzes code reports and uses Ollama AI to fix issues, improve code quality, and create pull requests automatically.
-
-## 🚀 Features
-
-- **Automated Code Analysis**: Processes code reports to identify critical issues
-- **AI-Powered Fixes**: Uses Ollama to analyze and improve code
-- **Docker Isolation**: Each repository is processed in its own isolated container
-- **Git Integration**: Automatically clones repos, creates branches, and submits PRs
-- **Real-time Monitoring**: REST API with job tracking and live logs
-- **Security Priority**: Focuses on fixing vulnerabilities and critical bugs first
-
-## 🏗️ Architecture
-
-```
-Code Report → API Server → Docker Container → Ollama model → Pull Request
-```
-
-1. **API Server**: Receives code reports via REST API
-2. **Job Management**: Tracks improvement jobs with unique IDs
-3. **Docker Workers**: Isolated containers that clone repos and apply fixes
-4. **Ollama Integration**: Uses Ollama for intelligent code improvements
-5. **GitHub Integration**: Creates branches and pull requests automatically
+Simple command-line tools to generate analysis reports using Ollama models.
 
 ## 📋 Prerequisites
 
-- Docker installed and running
-- Python 3.11+
-- Ollama installed and running (or access to Ollama server)
+- Python 3.7+
+- Ollama installed and running
 
-## ⚡ Quick Start
-
-### 1. Clone and Setup
+## ⚡ Installation
 
 ```bash
-git clone <your-repo>
-cd ai-code-improver
-
-# Install API dependencies
-pip install fastapi uvicorn docker python-multipart
+git clone git@github.com:pre-msc-2027/ai.git
+cd ai
+poetry install
 ```
 
-### 2. Build Docker Image
+## 🛠️ Tools
 
+### cli.py - Simple Ollama Chat
+
+Interactive tool for sending prompts to Ollama models.
+
+**Usage:**
 ```bash
-docker build -t code-quality-improver:latest -f Dockerfile.worker.worker .
+python cli.py "Your prompt here" [options]
 ```
 
-### 3. Start the API Server
+**Arguments:**
+- `prompt` - Text prompt to send to the AI (required)
 
+**Options:**
+- `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
+- `-m, --model MODEL` - Model to use (default: mistral:latest)
+- `--stream` - Enable streaming output
+- `--async` - Use asynchronous mode
+
+**Examples:**
 ```bash
-python api_server.py
+# Basic usage
+poetry run python cli.py "What is Python?"
+
+# Different model and host
+poetry run python cli.py "Explain Docker" -m llama3:8b --host http://localhost:11434
+
+# Streaming mode
+poetry run python cli.py "Write a function to sort a list" --stream
+
+# Async mode
+poetry run python cli.py "Explain machine learning" --async
 ```
 
-The API will be available at `http://localhost:8000`
+### cli_file.py - Code File Analysis
 
-### 4. Submit a code Report
+Tool for analyzing code files and generating improvement recommendations.
 
+**Usage:**
 ```bash
-curl -X POST "http://localhost:8000/improve-code" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "repo_url": "https://github.com/your-org/your-repo.git",
-    "branch": "main",
-    "priority": "high",
-    "issues": [
-      {
-        "key": "security:S2068",
-        "severity": "CRITICAL",
-        "type": "VULNERABILITY",
-        "message": "Hard-coded credentials detected",
-        "file": "src/config.py",
-        "line": 15
-      }
-    ],
-    "metrics": {
-      "coverage": 65.4,
-      "duplicated_lines_density": 12.3,
-      "maintainability_rating": "C"
-    }
-  }'
+python cli_file.py file1 [file2 ...] [options]
 ```
 
-## 📊 API Endpoints
+**Arguments:**
+- `file` - Path(s) to file(s) to analyze (supports glob patterns like `src/*.py`)
 
-| Endpoint           | Method | Description                         |
-|--------------------|--------|-------------------------------------|
-| `/improve-code`    | POST   | Submit a code report for processing |
-| `/status/{job_id}` | GET    | Get job status and details          |
-| `/jobs`            | GET    | List all jobs                       |
-| `/logs/{job_id}`   | GET    | Get real-time job logs              |
-| `/jobs/{job_id}`   | DELETE | Cancel a running job                |
-| `/health`          | GET    | System health check                 |
+**Options:**
+- `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
+- `-m, --model MODEL` - Model to use (default: mistral:latest)
+- `-s, --stream` - Enable streaming output
+- `-v, --verbose` - Enable verbose output
+- `-o, --output` - Save analysis to markdown files
+- `--output-dir DIR` - Directory to save markdown files (created if not exists)
+- `--async` - Force asynchronous mode (auto-enabled for multiple files)
+- `--concurrent N` - Max concurrent requests in async mode (default: 3)
 
-## 🔧 Configuration
+**Examples:**
+```bash
+# Analyze single file
+poetry run python cli_file.py main.py
 
-### code Report Format
+# Analyze multiple files (auto-async)
+poetry run python cli_file.py src/*.py
 
-```json
-{
-  "repo_url": "https://github.com/owner/repo.git",
-  "branch": "main",
-  "priority": "high|medium|low",
-  "issues": [
-    {
-      "key": "rule-key",
-      "severity": "CRITICAL|MAJOR|MINOR",
-      "type": "BUG|VULNERABILITY|CODE_SMELL",
-      "message": "Issue description",
-      "file": "path/to/file.py",
-      "line": 42
-    }
-  ],
-  "metrics": {
-    "coverage": 65.4,
-    "duplicated_lines_density": 12.3,
-    "maintainability_rating": "C"
-  }
-}
+# Save to markdown
+poetry run python cli_file.py main.py -o
+
+# Save to specific directory
+poetry run python cli_file.py src/*.py -o --output-dir reports
+
+# Custom model and concurrent processing
+poetry run python cli_file.py *.py -m llama3:8b --concurrent 5
+
+# Verbose output with streaming
+poetry run python cli_file.py app.py -v --stream
 ```
 
-## 🐳 Docker Architecture
+## 📄 Output
 
-The system uses Docker containers to isolate each code improvement job:
+### cli.py
+Outputs the AI response directly to the console.
 
-- **Base Image**: Python 3.11 with Git, Node.js, and GitHub CLI
-- **Ollama**: Installed for AI-powered code analysis
-- **Isolated Workspace**: Each job runs in its own container and directory
-- **Auto-cleanup**: Containers are automatically removed after completion
+### cli_file.py
+- **Console**: Displays analysis results with code issues and recommendations
+- **Markdown files** (with `-o`): Saves detailed reports with format `filename_analysis_YYYY_MM_DD-HH_MM_SS.md`
 
-## 🔍 Job Lifecycle
+## ⚙️ Configuration
 
-1. **Pending**: Job created and queued
-2. **Running**: Docker container launched, repo cloned
-3. **Improving**: Ollama model analyzes and modifies code
-4. **Completed**: Changes committed and PR created
-5. **Failed**: Error occurred (check logs for details)
+Both tools support:
+- Custom Ollama server URLs via `--host`
+- Different AI models via `--model`
+- Streaming vs. batch responses
 
-## 📝 Example Output
+## 🔧 Troubleshooting
 
-When a job completes successfully, you'll get:
+**Connection issues:**
+- Ensure Ollama is running: `ollama serve`
+- Check the correct host/port with `--host`
 
-```json
-{
-  "job_id": "abc123...",
-  "status": "completed",
-  "repo_url": "https://github.com/owner/repo.git",
-  "pull_request_url": "https://github.com/owner/repo/pull/42",
-  "completed_at": "2025-06-24T10:30:00Z"
-}
-```
+**Model not found:**
+- List available models: `ollama list`
+- Pull a model: `ollama pull mistral:latest`
 
-## 🔒 Security Features
+**File analysis issues:**
+- Ensure files exist and are readable
+- Check file extensions are supported (.py, .js, .ts, .java, etc.)
 
-- **Isolated Execution**: Each repo is processed in a separate container
-- **Permission Control**: Ollama model runs with limited tool permissions
-- **Auto-cleanup**: Temporary files and containers are automatically removed
-
-## 🚦 Best Practices
-
-1. **Test First**: Try the system on a test repository before production use
-2. **Review PRs**: Always review AI-generated changes before merging
-3. **Backup Important Repos**: The system creates new branches, but backup critical code
-4. **Monitor Jobs**: Use the logs endpoint to track progress and debug issues
-
-## 🛠️ Development
+## 🧪 Development & Testing
 
 ### Running Tests
 
+With Poetry:
 ```bash
-# Test the complete workflow
-bash usage_example.sh
+# Install dev dependencies
+poetry install --with dev
+
+# Run all tests
+poetry run pytest
+
+# Run tests with coverage
+poetry run pytest --cov
+
+# Run specific test file
+poetry run pytest tests/test_cli.py
+
+# Run tests in verbose mode
+poetry run pytest -v
 ```
 
-### Adding Custom Rules
+### Test Structure
 
-Modify the `analyze_code_report()` function in `worker.py` to customize how issues are prioritized and processed.
+- `tests/` - Test directory
+- `tests/conftest.py` - Common fixtures and test utilities
+- `tests/test_cli.py` - Tests for cli.py functionality
+- `tests/test_cli_file.py` - Tests for cli_file.py functionality
 
-### Extending the API
+### Coverage Reports
 
-The FastAPI server can be easily extended with additional endpoints for webhooks, notifications, or custom integrations.
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📞 Support
-
-For issues and questions:
-- Check the `/health` endpoint for system status
-- Review job logs via `/logs/{job_id}`
-- Open an issue on GitHub
-
----
-
-**⚠️ Disclaimer**: This tool uses AI to modify code automatically. Always review changes before merging to production.
+HTML coverage reports are generated in `htmlcov/` directory after running tests with `--cov` flag.
