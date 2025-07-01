@@ -30,7 +30,7 @@ python cli.py "Your prompt here" [options]
 - `prompt` - Text prompt to send to the AI (required)
 
 **Options:**
-- `-h, --host URL` - Ollama server URL (default: http://10.0.0.1:11434)
+- `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
 - `-m, --model MODEL` - Model to use (default: mistral:latest)
 - `--stream` - Enable streaming output
 - `--async` - Use asynchronous mode
@@ -63,7 +63,7 @@ python cli_file.py file1 [file2 ...] [options]
 - `file` - Path(s) to file(s) to analyze (supports glob patterns like `src/*.py`)
 
 **Options:**
-- `-h, --host URL` - Ollama server URL (default: http://10.0.0.1:11434)
+- `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
 - `-m, --model MODEL` - Model to use (default: mistral:latest)
 - `-s, --stream` - Enable streaming output
 - `-v, --verbose` - Enable verbose output
@@ -76,6 +76,7 @@ python cli_file.py file1 [file2 ...] [options]
 ```bash
 # Analyze single file
 poetry run python cli_file.py main.py
+
 # Analyze multiple files (auto-async)
 poetry run python cli_file.py src/*.py
 
