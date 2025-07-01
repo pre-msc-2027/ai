@@ -464,7 +464,8 @@ async def process_multiple_files_async(host, model, file_paths, save_output=Fals
 
 
 
-def main():
+def _create_argument_parser():
+    """Create and configure the argument parser"""
     parser = argparse.ArgumentParser(
         description='Ollama AI CLI Tool - File Analysis using Ollama',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -492,21 +493,25 @@ def main():
                         help='Directory to save markdown files (created if not exists)')
     parser.add_argument('--concurrent', type=int, default=4,
                        help='Maximum number of concurrent requests in async mode (default: 4)')
+    
+    return parser
 
-    args = parser.parse_args()
 
-    # Configure logging level based on verbose flag
-    log_level = logging.DEBUG if args.verbose else logging.WARNING
+def _configure_logging(verbose):
+    """Configure logging based on verbosity level"""
+    log_level = logging.DEBUG if verbose else logging.WARNING
     logging.basicConfig(
         level=log_level,
         format='[%(asctime)s] [%(levelname)s] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    # Expand glob patterns if any
+
+def _expand_file_patterns(patterns):
+    """Expand glob patterns and return list of files"""
     import glob
     all_files = []
-    for pattern in args.file:
+    for pattern in patterns:
         matched_files = glob.glob(pattern)
         if matched_files:
             all_files.extend(matched_files)
@@ -515,9 +520,11 @@ def main():
             all_files.append(pattern)
     
     # Remove duplicates while preserving order
-    all_files = list(dict.fromkeys(all_files))
-    
-    # Filter out non-existent files
+    return list(dict.fromkeys(all_files))
+
+
+def _validate_files(all_files):
+    """Validate that files exist and are readable"""
     valid_files = []
     for file_path in all_files:
         if os.path.exists(file_path) and os.path.isfile(file_path):
@@ -527,57 +534,81 @@ def main():
     
     if not valid_files:
         logger.error("❌ No valid files to analyze.")
+        return None
+    
+    return valid_files
+
+
+def _process_multiple_files(args, valid_files):
+    """Process multiple files in async mode"""
+    logger.info(f"🚀 Analyzing {len(valid_files)} file(s) in async mode with max {args.concurrent} concurrent requests...")
+    asyncio.run(process_multiple_files_async(args.host, args.model, valid_files, args.output, args.concurrent, args.output_dir, args.stream))
+    return 0
+
+
+def _process_single_file(args, file_path):
+    """Process a single file in sync mode"""
+    content = read_file_content(file_path)
+    if content is None:
         return 1
 
-    # Auto-enable async mode for multiple files
-    use_async = len(valid_files) > 1
+    # Check file size limit
+    max_size = 100000  # 100KB limit
+    if len(content) > max_size:
+        logger.warning(f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters.")
+        content = content[:max_size] + "\n... (truncated)"
+
+    # Get static analysis issues for the file
+    logger.info("🔍 Checking for code issues...")
+    sonar_issues = get_static_analysis_issues(file_path)
     
-    if use_async:
-        logger.info(f"🚀 Analyzing {len(valid_files)} file(s) in async mode with max {args.concurrent} concurrent requests...")
-        asyncio.run(process_multiple_files_async(args.host, args.model, valid_files, args.output, args.concurrent, args.output_dir, args.stream))
-        return 0
-    else:
-        # Single file sync mode
-        file_path = valid_files[0]
-        content = read_file_content(file_path)
-        if content is None:
-            return 1
-
-        # Check file size
-        max_size = 100000  # 100KB limit
-        if len(content) > max_size:
-            logger.warning(f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters.")
-            content = content[:max_size] + "\\n... (truncated)"
-
-        # Get static analysis issues for the file
-        logger.info("🔍 Checking for code issues...")
-        sonar_issues = get_static_analysis_issues(file_path)
+    if sonar_issues:
+        logger.info(f"⚠️  Found {len(sonar_issues)} code issues")
         
-        if sonar_issues:
-            logger.info(f"⚠️  Found {len(sonar_issues)} code issues")
-            if args.verbose:
-                for issue in sonar_issues:
-                    logger.debug(f"  - Line {issue.get('line', 'N/A')}: {issue.get('message', 'No message')}")
-            
-            if args.verbose:
-                logger.debug(f"📁 File: {file_path}")
-                logger.debug(f"📏 Size: {len(content)} characters")
-                logger.debug(f"🔤 First 200 chars: {content[:200]}...")
+        if args.verbose:
+            for issue in sonar_issues:
+                logger.debug(f"  - Line {issue.get('line', 'N/A')}: {issue.get('message', 'No message')}")
+            logger.debug(f"📁 File: {file_path}")
+            logger.debug(f"📏 Size: {len(content)} characters")
+            logger.debug(f"🔤 First 200 chars: {content[:200]}...")
 
-            # Override streaming if output file is specified
-            is_streaming = args.stream and not args.output
-            
-            # Analyze with Ollama only if code issues are found
-            response = analyze_file_with_ollama_sync(args.host, args.model, file_path, content, is_streaming, sonar_issues, args.output)
-            
-            # Save to markdown if output flag is specified
-            if args.output and response:
-                output_filename = generate_output_filename(file_path)
-                save_to_markdown(output_filename, response, file_path, args.output_dir)
-        else:
-            logger.info("✅ No code issues detected - Analysis skipped")
+        # Override streaming if output file is specified
+        is_streaming = args.stream and not args.output
+        
+        # Analyze with Ollama only if code issues are found
+        response = analyze_file_with_ollama_sync(args.host, args.model, file_path, content, is_streaming, sonar_issues, args.output)
+        
+        # Save to markdown if output flag is specified
+        if args.output and response:
+            output_filename = generate_output_filename(file_path)
+            save_to_markdown(output_filename, response, file_path, args.output_dir)
+    else:
+        logger.info("✅ No code issues detected - Analysis skipped")
     
     return 0
+
+
+def main():
+    """Main entry point for the CLI application"""
+    # Parse arguments
+    parser = _create_argument_parser()
+    args = parser.parse_args()
+    
+    # Configure logging
+    _configure_logging(args.verbose)
+    
+    # Expand file patterns and validate
+    all_files = _expand_file_patterns(args.file)
+    valid_files = _validate_files(all_files)
+    
+    if valid_files is None:
+        return 1
+    
+    # Process files based on count (auto-async for multiple files)
+    if len(valid_files) > 1:
+        return _process_multiple_files(args, valid_files)
+    else:
+        return _process_single_file(args, valid_files[0])
 
 
 if __name__ == "__main__":
