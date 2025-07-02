@@ -5,7 +5,8 @@ Ollama AI CLI Tool - Simple POC using Ollama
 
 import argparse
 import logging
-from typing import List, Dict
+from typing import Dict, List
+
 from ollama import Client
 
 # Configure logging
@@ -21,40 +22,30 @@ def send_prompt(host: str, model: str, prompt: str, is_streaming: bool) -> None:
         # Send prompt to Ollama
         messages: List[Dict[str, str]] = [
             {
-                'role': 'system',
-                'content': 'You are a code analysis assistant. Provide detailed and structured analysis of repositories.'
+                "role": "system",
+                "content": "You are a code analysis assistant. Provide detailed and structured analysis of repositories.",
             },
-            {
-                'role': 'user',
-                'content': prompt
-            }
+            {"role": "user", "content": prompt},
         ]
-        
+
         if is_streaming:
             streaming_response = client.chat(
-                model=model,
-                messages=messages,
-                stream=True
+                model=model, messages=messages, stream=True
             )
             for chunk in streaming_response:
-                print(chunk['message']['content'], end='', flush=True)
+                print(chunk["message"]["content"], end="", flush=True)
         else:
-            response = client.chat(
-                model=model,
-                messages=messages,
-                stream=False
-            )
+            response = client.chat(model=model, messages=messages, stream=False)
             # Extract and display response
-            if 'message' in response and 'content' in response['message']:
-                print(response['message']['content'])
+            if "message" in response and "content" in response["message"]:
+                print(response["message"]["content"])
     except Exception as e:
         logger.error(f"Error communicating with Ollama: {e}")
 
 
-
 def main() -> None:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        description='Ollama AI CLI Tool - Simple POC using Ollama',
+        description="Ollama AI CLI Tool - Simple POC using Ollama",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
             Examples:
@@ -62,16 +53,25 @@ def main() -> None:
               python cli.py "Explain Docker" --stream          # Stream output
               python cli.py "Hello" -m llama3:8b              # Use different model
               python cli.py "Debug this code" --verbose        # Enable verbose logging
-        """
+        """,
     )
 
-    parser.add_argument('--host', default='http://10.0.0.1:11434',
-                        help='Ollama server URL (default: http://10.0.0.1:11434)')
-    parser.add_argument('-m', '--model', default='mistral:latest',
-                        help='Ollama model to use (default: mistral:latest)')
-    parser.add_argument('prompt', help='Prompt to send to AI')
-    parser.add_argument('--stream', action='store_true', help='Stream output')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
+    parser.add_argument(
+        "--host",
+        default="http://10.0.0.1:11434",
+        help="Ollama server URL (default: http://10.0.0.1:11434)",
+    )
+    parser.add_argument(
+        "-m",
+        "--model",
+        default="mistral:latest",
+        help="Ollama model to use (default: mistral:latest)",
+    )
+    parser.add_argument("prompt", help="Prompt to send to AI")
+    parser.add_argument("--stream", action="store_true", help="Stream output")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose output"
+    )
 
     args: argparse.Namespace = parser.parse_args()
 
@@ -79,8 +79,8 @@ def main() -> None:
     log_level: int = logging.DEBUG if args.verbose else logging.WARNING
     logging.basicConfig(
         level=log_level,
-        format='[%(asctime)s] [%(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        format="[%(asctime)s] [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     # Send prompt to Ollama
