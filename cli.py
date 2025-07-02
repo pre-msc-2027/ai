@@ -23,7 +23,10 @@ def send_prompt(host: str, model: str, prompt: str, is_streaming: bool) -> None:
         messages: List[Dict[str, str]] = [
             {
                 "role": "system",
-                "content": "You are a code analysis assistant. Provide detailed and structured analysis of repositories.",
+                "content": (
+                    "You are a code analysis assistant. Provide detailed and "
+                    "structured analysis of repositories."
+                ),
             },
             {"role": "user", "content": prompt},
         ]

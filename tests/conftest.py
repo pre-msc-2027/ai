@@ -24,7 +24,8 @@ import json
 def test_function():
     # Print statement
     print("This is a test")
-    # Long line that exceeds 120 characters limit and should be split for better readability according to style guidelines
+    # Long line that exceeds 120 characters limit and should be split
+    # for better readability according to style guidelines
     api_key = "secret_key_123"  # Hardcoded credential
     return True
 

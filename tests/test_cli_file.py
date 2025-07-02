@@ -11,9 +11,10 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cli_file import (  # New helper functions; New checker functions
+from cli_file import (  # noqa: E402
     _configure_logging,
     _create_argument_parser,
     _expand_file_patterns,
@@ -403,9 +404,9 @@ class TestMainHelperFunctions:
         assert args.host == "http://10.0.0.1:11434"
         assert args.model == "mistral:latest"
         assert args.file == ["test.py"]
-        assert args.stream == False
-        assert args.verbose == False
-        assert args.output == False
+        assert args.stream is False
+        assert args.verbose is False
+        assert args.output is False
         assert args.concurrent == 4
 
     def test_create_argument_parser_with_options(self) -> None:
@@ -431,9 +432,9 @@ class TestMainHelperFunctions:
         assert args.host == "http://localhost:11434"
         assert args.model == "llama3:8b"
         assert args.file == ["file1.py", "file2.py"]
-        assert args.stream == True
-        assert args.verbose == True
-        assert args.output == True
+        assert args.stream is True
+        assert args.verbose is True
+        assert args.output is True
         assert args.concurrent == 8
 
     @patch("cli_file.logging.basicConfig")
@@ -940,7 +941,8 @@ class TestAsyncProcessing:
         assert results[0] == "Analysis result"
 
         # Check that analyze was called with truncated content
-        # analyze_file_with_ollama_async(host, model, file_path, content, is_streaming, sonar_issues, save_output)
+        # analyze_file_with_ollama_async(host, model, file_path, content,
+        # is_streaming, sonar_issues, save_output)
         call_args = mock_analyze.call_args[0]  # Positional arguments
         truncated_content = call_args[3]  # 4th argument is content
         assert len(truncated_content) <= 100000 + 20  # 100KB + "... (truncated)"
@@ -970,9 +972,10 @@ class TestAsyncProcessing:
         )
 
         # Verify analyze was called with streaming=True
-        # analyze_file_with_ollama_async(host, model, file_path, content, is_streaming, sonar_issues, save_output)
+        # analyze_file_with_ollama_async(host, model, file_path, content,
+        # is_streaming, sonar_issues, save_output)
         call_args = mock_analyze.call_args[0]  # Positional arguments
-        assert call_args[4] == True  # 5th argument is is_streaming
+        assert call_args[4] is True  # 5th argument is is_streaming
 
         # Test with streaming enabled but save_output=True (should disable streaming)
         await process_multiple_files_async(
@@ -985,7 +988,7 @@ class TestAsyncProcessing:
 
         # Verify analyze was called with streaming=False when saving output
         call_args = mock_analyze.call_args[0]  # Positional arguments
-        assert call_args[4] == False  # 5th argument is is_streaming
+        assert call_args[4] is False  # 5th argument is is_streaming
 
 
 class TestMainCliFile:

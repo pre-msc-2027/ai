@@ -59,54 +59,59 @@ def build_sonar_analysis_prompt(
 """
         for i, issue in enumerate(sonar_issues, 1):
             sonar_section += f"""
-{i}. **{issue.get('type', 'Issue').upper()}** (Line {issue.get('line', 'N/A')}) - {issue.get('severity', 'UNKNOWN')}
+{i}. **{issue.get('type', 'Issue').upper()}** \
+(Line {issue.get('line', 'N/A')}) - {issue.get('severity', 'UNKNOWN')}
    Message: {issue.get('message', 'No message')}
    Code: `{issue.get('code', 'N/A')}`
 """
-        sonar_section += "\nPlease address these SonarQube issues in your analysis and provide specific recommendations for fixing each one.\n"
+        sonar_section += (
+            "\nPlease address these SonarQube issues in your analysis and "
+            "provide specific recommendations for fixing each one.\n"
+        )
 
     # Build analysis prompt focused only on SonarQube issues
     return f"""
-        You are a SonarQube issue resolver. Analyze ONLY the SonarQube issues detected in the {language} file: {file_path}
+        You are a SonarQube issue resolver. Analyze ONLY the SonarQube issues "
+        f"detected in the {language} file: {file_path}
 
         {sonar_section}
-        
+
         For each SonarQube issue listed above, provide a response in this EXACT format:
-        
+
         ## Issue #[NUMBER]
         **Location:** Line [LINE_NUMBER]
         **Type:** [ISSUE_TYPE]
         **Severity:** [SEVERITY_LEVEL]
         **Problem:** [BRIEF_DESCRIPTION]
-        
+
         **Root Cause:**
         [Explain why this is an issue in 1-2 sentences]
-        
+
         **Solution:**
         [Provide the exact code fix]
-        
+
         **Original Code:**
         ```{language.lower()}
         [Show the problematic code]
         ```
-        
+
         **Fixed Code:**
         ```{language.lower()}
         [Show the corrected code]
         ```
-        
+
         **Why This Fix Works:**
         [Explain in 1-2 sentences why this solution resolves the issue]
-        
+
         ---
-        
-        IMPORTANT: 
+
+        IMPORTANT:
         - Address ONLY the SonarQube issues provided
         - Do NOT add general code analysis or suggestions
         - Use the exact format above for each issue
         - Provide working code solutions
         - Keep explanations concise and technical
-        
+
         **File Content for Reference:**
         ```{language.lower()}
         {content}
@@ -149,7 +154,10 @@ def check_long_lines(line: str, line_number: int) -> Optional[Dict[str, Any]]:
             "line": line_number,
             "type": "code_smell",
             "severity": "MINOR",
-            "message": "Split this 120 characters long line (which is greater than 120 authorized)",
+            "message": (
+                "Split this 120 characters long line "
+                "(which is greater than 120 authorized)"
+            ),
             "code": line.strip()[:50] + "...",
         }
     return None
@@ -171,7 +179,10 @@ def check_empty_catch_blocks(
                 "line": line_number,
                 "type": "bug",
                 "severity": "MAJOR",
-                "message": "Handle the exception or explain in a comment why it can be ignored",
+                "message": (
+                    "Handle the exception or explain in a comment "
+                    "why it can be ignored"
+                ),
                 "code": f"{stripped_line}\\n{next_line}",
             }
     return None
@@ -334,7 +345,14 @@ def _get_system_message() -> Dict[str, str]:
     """Get the system message for Ollama"""
     return {
         "role": "system",
-        "content": "You are a SonarQube issue resolver. Follow the exact format provided. Address ONLY the specific SonarQube issues listed. Do not provide general analysis or additional suggestions. Be precise, technical, and stick to the required structure. IMPORTANT: Format your entire response in proper Markdown syntax with appropriate headers, code blocks, lists, and emphasis.",
+        "content": (
+            "You are a SonarQube issue resolver. Follow the exact format provided. "
+            "Address ONLY the specific SonarQube issues listed. Do not provide "
+            "general analysis or additional suggestions. Be precise, technical, "
+            "and stick to the required structure. IMPORTANT: Format your entire "
+            "response in proper Markdown syntax with appropriate headers, "
+            "code blocks, lists, and emphasis."
+        ),
     }
 
 
@@ -498,7 +516,8 @@ async def process_multiple_files_async(
             max_size = 100000  # 100KB limit
             if len(content) > max_size:
                 logger.warning(
-                    f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters."
+                    f"⚠️  Warning: File is large ({len(content)} chars). "
+                    f"Truncating to {max_size} characters."
                 )
                 content = content[:max_size] + "\\n... (truncated)"
 
@@ -531,7 +550,8 @@ async def process_multiple_files_async(
             else:
                 elapsed_time = time.time() - start_time
                 logger.info(
-                    f"✅ No code issues detected - Analysis skipped ({elapsed_time:.1f}s)"
+                    f"✅ No code issues detected - Analysis skipped "
+                    f"({elapsed_time:.1f}s)"
                 )
                 return None
 
@@ -543,7 +563,8 @@ async def process_multiple_files_async(
     total_time = time.time() - start_total
     successful_files = sum(1 for r in results if r is not None)
     logger.info(
-        f"🏁 Async processing completed: {successful_files}/{len(file_paths)} files in {total_time:.1f}s"
+        f"🏁 Async processing completed: {successful_files}/{len(file_paths)} "
+        f"files in {total_time:.1f}s"
     )
 
     return results
@@ -560,7 +581,8 @@ def _create_argument_parser() -> argparse.ArgumentParser:
               python cli_file.py src/utils.js           # Analyze a JavaScript file
               python cli_file.py config/settings.json   # Analyze a JSON file
               python cli_file.py mycode.py -o           # Save analysis to markdown
-              python cli_file.py src/*.py --concurrent 5        # Multiple files (auto-async) with 5 concurrent requests
+              python cli_file.py src/*.py --concurrent 5 \
+                                          # Multiple files (auto-async)
         """,
     )
 
@@ -647,7 +669,8 @@ def _validate_files(all_files: List[str]) -> Optional[List[str]]:
 def _process_multiple_files(args: argparse.Namespace, valid_files: List[str]) -> int:
     """Process multiple files in async mode"""
     logger.info(
-        f"🚀 Analyzing {len(valid_files)} file(s) in async mode with max {args.concurrent} concurrent requests..."
+        f"🚀 Analyzing {len(valid_files)} file(s) in async mode with max "
+        f"{args.concurrent} concurrent requests..."
     )
     asyncio.run(
         process_multiple_files_async(
@@ -673,7 +696,8 @@ def _process_single_file(args: argparse.Namespace, file_path: str) -> int:
     max_size = 100000  # 100KB limit
     if len(content) > max_size:
         logger.warning(
-            f"⚠️  Warning: File is large ({len(content)} chars). Truncating to {max_size} characters."
+            f"⚠️  Warning: File is large ({len(content)} chars). "
+            f"Truncating to {max_size} characters."
         )
         content = content[:max_size] + "\n... (truncated)"
 
@@ -687,7 +711,8 @@ def _process_single_file(args: argparse.Namespace, file_path: str) -> int:
         if args.verbose:
             for issue in sonar_issues:
                 logger.debug(
-                    f"  - Line {issue.get('line', 'N/A')}: {issue.get('message', 'No message')}"
+                    f"  - Line {issue.get('line', 'N/A')}: "
+                    f"{issue.get('message', 'No message')}"
                 )
             logger.debug(f"📁 File: {file_path}")
             logger.debug(f"📏 Size: {len(content)} characters")

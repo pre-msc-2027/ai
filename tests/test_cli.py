@@ -9,9 +9,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cli import send_prompt
+from cli import send_prompt  # noqa: E402
 
 
 class TestSendPrompt:
@@ -42,7 +43,7 @@ class TestSendPrompt:
         # Check the call arguments
         call_args = mock_client.chat.call_args
         assert call_args[1]["model"] == "mistral:latest"
-        assert call_args[1]["stream"] == False
+        assert call_args[1]["stream"] is False
         assert len(call_args[1]["messages"]) == 2
         assert call_args[1]["messages"][1]["content"] == "Test prompt"
 
@@ -70,7 +71,7 @@ class TestSendPrompt:
 
         # Check streaming parameter
         call_args = mock_client.chat.call_args
-        assert call_args[1]["stream"] == True
+        assert call_args[1]["stream"] is True
 
     @patch("cli.Client")
     def test_send_prompt_connection_error(self, mock_client_class: Mock) -> None:
@@ -128,8 +129,8 @@ class TestArgumentParsing:
         assert args.prompt == "Test prompt"
         assert args.host == "http://10.0.0.1:11434"
         assert args.model == "mistral:latest"
-        assert args.stream == False
-        assert args.verbose == False
+        assert args.stream is False
+        assert args.verbose is False
 
     def test_argument_parser_with_options(self) -> None:
         """Test argument parsing with all available options"""
@@ -156,8 +157,8 @@ class TestArgumentParsing:
         assert args.prompt == "Test prompt with options"
         assert args.host == "http://localhost:11434"
         assert args.model == "llama3:8b"
-        assert args.stream == True
-        assert args.verbose == True
+        assert args.stream is True
+        assert args.verbose is True
 
 
 class TestMainFunction:
