@@ -5,6 +5,7 @@ Ollama AI CLI Tool - Simple POC using Ollama
 
 import argparse
 import logging
+from typing import List, Dict
 from ollama import Client
 
 # Configure logging
@@ -18,7 +19,7 @@ def send_prompt(host: str, model: str, prompt: str, is_streaming: bool) -> None:
         client = Client(host=host)
 
         # Send prompt to Ollama
-        messages = [
+        messages: List[Dict[str, str]] = [
             {
                 'role': 'system',
                 'content': 'You are a code analysis assistant. Provide detailed and structured analysis of repositories.'
@@ -52,7 +53,7 @@ def send_prompt(host: str, model: str, prompt: str, is_streaming: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
         description='Ollama AI CLI Tool - Simple POC using Ollama',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
@@ -72,10 +73,10 @@ def main() -> None:
     parser.add_argument('--stream', action='store_true', help='Stream output')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
 
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
     # Configure logging level based on verbose flag
-    log_level = logging.DEBUG if args.verbose else logging.WARNING
+    log_level: int = logging.DEBUG if args.verbose else logging.WARNING
     logging.basicConfig(
         level=log_level,
         format='[%(asctime)s] [%(levelname)s] %(message)s',

@@ -10,7 +10,7 @@ import asyncio
 import logging
 import time
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable
 from ollama import Client, AsyncClient, ChatResponse
 from datetime import datetime
 
@@ -200,7 +200,7 @@ def get_static_analysis_issues(file_path: str) -> List[Dict[str, Any]]:
     """Perform static analysis to find code issues"""
     try:
         logger.info("🔍 Running static analysis...")
-        issues = []
+        issues: List[Dict[str, Any]] = []
         
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
@@ -208,7 +208,7 @@ def get_static_analysis_issues(file_path: str) -> List[Dict[str, Any]]:
         lines = content.split('\n')
         
         # List of checker functions
-        checkers = [
+        checkers: List[Callable[[str, int], Optional[Dict[str, Any]]]] = [
             lambda line, i: check_todo_comments(line, i),
             lambda line, i: check_print_statements(line, i, file_path),
             lambda line, i: check_long_lines(line, i),
@@ -353,10 +353,10 @@ def analyze_file_with_ollama_sync(host: str, model: str, file_path: str, content
         _log_analysis_start(language, file_path, content, save_to_file)
         
         # Configure Ollama client
-        client = Client(host=host)
+        client: Client = Client(host=host)
         
         # Send prompt to Ollama
-        messages = [
+        messages: List[Dict[str, str]] = [
             _get_system_message(),
             {'role': 'user', 'content': prompt}
         ]
@@ -390,10 +390,10 @@ async def analyze_file_with_ollama_async(host: str, model: str, file_path: str, 
         _log_analysis_start(language, file_path, content, save_to_file)
         
         # Configure Ollama client
-        client = AsyncClient(host=host)
+        client: AsyncClient = AsyncClient(host=host)
         
         # Send prompt to Ollama asynchronously
-        messages = [
+        messages: List[Dict[str, str]] = [
             _get_system_message(),
             {'role': 'user', 'content': prompt}
         ]
