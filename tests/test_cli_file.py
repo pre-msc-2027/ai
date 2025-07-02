@@ -6,10 +6,8 @@ import pytest
 import os
 import tempfile
 import logging
-from unittest.mock import Mock, patch, mock_open
-from pathlib import Path
-import asyncio
-from datetime import datetime
+from typing import List, Dict, Any
+from unittest.mock import Mock, AsyncMock, patch
 
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -42,7 +40,7 @@ from cli_file import (
 class TestStaticAnalysis:
     """Test static analysis functionality"""
     
-    def test_get_static_analysis_issues_with_todo(self, temp_file):
+    def test_get_static_analysis_issues_with_todo(self, temp_file: str) -> None:
         """Test detection of TODO comments"""
         issues = get_static_analysis_issues(temp_file)
         
@@ -52,7 +50,7 @@ class TestStaticAnalysis:
         assert todo_issues[0]['type'] == 'code_smell'
         assert todo_issues[0]['severity'] == 'INFO'
     
-    def test_get_static_analysis_issues_with_print(self, temp_file):
+    def test_get_static_analysis_issues_with_print(self, temp_file: str) -> None:
         """Test detection of print statements"""
         issues = get_static_analysis_issues(temp_file)
         
@@ -62,7 +60,7 @@ class TestStaticAnalysis:
         assert print_issues[0]['type'] == 'code_smell'
         assert print_issues[0]['severity'] == 'MINOR'
     
-    def test_get_static_analysis_issues_with_credentials(self, temp_file):
+    def test_get_static_analysis_issues_with_credentials(self, temp_file: str) -> None:
         """Test detection of hardcoded credentials"""
         issues = get_static_analysis_issues(temp_file)
         
@@ -72,7 +70,7 @@ class TestStaticAnalysis:
         assert cred_issues[0]['type'] == 'vulnerability'
         assert cred_issues[0]['severity'] == 'BLOCKER'
     
-    def test_get_static_analysis_issues_with_empty_catch(self, temp_file):
+    def test_get_static_analysis_issues_with_empty_catch(self, temp_file: str) -> None:
         """Test detection of empty catch blocks"""
         issues = get_static_analysis_issues(temp_file)
         
@@ -82,12 +80,12 @@ class TestStaticAnalysis:
         assert catch_issues[0]['type'] == 'bug'
         assert catch_issues[0]['severity'] == 'MAJOR'
     
-    def test_get_static_analysis_issues_no_file(self):
+    def test_get_static_analysis_issues_no_file(self) -> None:
         """Test with non-existent file"""
         issues = get_static_analysis_issues("non_existent_file.py")
         assert issues == []
     
-    def test_get_static_analysis_issues_clean_file(self):
+    def test_get_static_analysis_issues_clean_file(self) -> None:
         """Test with a clean file (no issues)"""
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
             f.write("""#!/usr/bin/env python3
@@ -110,30 +108,30 @@ if __name__ == "__main__":
 class TestFileOperations:
     """Test file reading and writing operations"""
     
-    def test_read_file_content_success(self, temp_file):
+    def test_read_file_content_success(self, temp_file: str) -> None:
         """Test successful file reading"""
         content = read_file_content(temp_file)
         assert content is not None
         assert 'def test_function():' in content
     
-    def test_read_file_content_not_found(self):
+    def test_read_file_content_not_found(self) -> None:
         """Test reading non-existent file"""
         content = read_file_content("non_existent_file.py")
         assert content is None
     
     @patch('builtins.open', side_effect=PermissionError())
-    def test_read_file_content_permission_error(self, mock_file):
+    def test_read_file_content_permission_error(self, mock_file: Mock) -> None:
         """Test reading file with permission error"""
         content = read_file_content("restricted_file.py")
         assert content is None
     
     @patch('builtins.open', side_effect=OSError("Disk full"))
-    def test_read_file_content_generic_error(self, mock_file):
+    def test_read_file_content_generic_error(self, mock_file: Mock) -> None:
         """Test reading file with generic exception"""
         content = read_file_content("problematic_file.py")
         assert content is None
     
-    def test_generate_output_filename(self):
+    def test_generate_output_filename(self) -> None:
         """Test output filename generation"""
         input_file = "test_script.py"
         output_file = generate_output_filename(input_file)
@@ -146,7 +144,7 @@ class TestFileOperations:
         timestamp_part = output_file.replace("test_script_analysis_", "").replace(".md", "")
         assert len(timestamp_part.split("-")) == 2  # date-time format
     
-    def test_save_to_markdown_basic(self, temp_dir):
+    def test_save_to_markdown_basic(self, temp_dir: str) -> None:
         """Test basic markdown saving"""
         content = "# Test Analysis\n\nThis is test content."
         filename = "test_output.md"
@@ -162,7 +160,7 @@ class TestFileOperations:
             assert f"Analysis Report for {analyzed_file}" in saved_content
             assert content in saved_content
     
-    def test_save_to_markdown_no_output_dir(self, temp_dir):
+    def test_save_to_markdown_no_output_dir(self, temp_dir: str) -> None:
         """Test markdown saving without output directory"""
         content = "# Test Analysis\n\nThis is test content."
         filename = os.path.join(temp_dir, "test_output.md")
@@ -173,7 +171,7 @@ class TestFileOperations:
         assert os.path.exists(filename)
     
     @patch('os.makedirs', side_effect=Exception("Permission denied"))
-    def test_save_to_markdown_error(self, mock_makedirs):
+    def test_save_to_markdown_error(self, mock_makedirs: Mock) -> None:
         """Test markdown saving with error"""
         content = "# Test Analysis"
         filename = "test_output.md"
@@ -187,7 +185,7 @@ class TestOllamaIntegration:
     """Test Ollama integration (with mocks)"""
     
     @patch('cli_file.Client')
-    def test_analyze_file_with_ollama_sync_non_streaming(self, mock_client_class, temp_file, sample_static_issues):
+    def test_analyze_file_with_ollama_sync_non_streaming(self, mock_client_class: Mock, temp_file: str, sample_static_issues: List[Dict[str, Any]]) -> None:
         """Test synchronous Ollama analysis without streaming"""
         # Setup mock
         mock_client = Mock()
@@ -214,7 +212,7 @@ class TestOllamaIntegration:
         mock_client.chat.assert_called_once()
     
     @patch('cli_file.Client')
-    def test_analyze_file_with_ollama_sync_streaming(self, mock_client_class, temp_file, sample_static_issues, mock_streaming_response):
+    def test_analyze_file_with_ollama_sync_streaming(self, mock_client_class: Mock, temp_file: str, sample_static_issues: List[Dict[str, Any]], mock_streaming_response: List[Dict[str, Any]]) -> None:
         """Test synchronous Ollama analysis with streaming"""
         # Setup mock
         mock_client = Mock()
@@ -240,10 +238,9 @@ class TestOllamaIntegration:
     
     @pytest.mark.asyncio
     @patch('cli_file.AsyncClient')
-    async def test_analyze_file_with_ollama_async_non_streaming(self, mock_client_class, temp_file, sample_static_issues):
+    async def test_analyze_file_with_ollama_async_non_streaming(self, mock_client_class: Mock, temp_file: str, sample_static_issues: List[Dict[str, Any]]) -> None:
         """Test asynchronous Ollama analysis without streaming"""
         # Setup mock
-        from unittest.mock import AsyncMock
         mock_client = AsyncMock()
         mock_client.chat.return_value = {
             'message': {'content': 'Mock async analysis response'}
@@ -268,7 +265,7 @@ class TestOllamaIntegration:
         mock_client.chat.assert_called_once()
     
     @patch('cli_file.Client')
-    def test_analyze_file_with_ollama_sync_connection_error(self, mock_client_class, temp_file, sample_static_issues):
+    def test_analyze_file_with_ollama_sync_connection_error(self, mock_client_class: Mock, temp_file: str, sample_static_issues: List[Dict[str, Any]]) -> None:
         """Test Ollama connection error handling"""
         # Setup mock to raise exception
         mock_client = Mock()
@@ -295,7 +292,7 @@ class TestOllamaIntegration:
 class TestCheckerFunctions:
     """Test individual checker functions for static analysis"""
     
-    def test_check_todo_comments_found(self):
+    def test_check_todo_comments_found(self) -> None:
         """Test TODO comment detection"""
         result = check_todo_comments("# TODO: Fix this later", 5)
         assert result is not None
@@ -304,12 +301,12 @@ class TestCheckerFunctions:
         assert result['severity'] == 'INFO'
         assert 'TODO' in result['message']
     
-    def test_check_todo_comments_not_found(self):
+    def test_check_todo_comments_not_found(self) -> None:
         """Test when no TODO comments"""
         result = check_todo_comments("# Regular comment", 1)
         assert result is None
     
-    def test_check_print_statements_python(self):
+    def test_check_print_statements_python(self) -> None:
         """Test print statement detection in Python files"""
         result = check_print_statements("print('Hello world')", 10, "test.py")
         assert result is not None
@@ -317,12 +314,12 @@ class TestCheckerFunctions:
         assert result['type'] == 'code_smell'
         assert result['severity'] == 'MINOR'
     
-    def test_check_print_statements_non_python(self):
+    def test_check_print_statements_non_python(self) -> None:
         """Test print statement ignored in non-Python files"""
         result = check_print_statements("print('Hello')", 1, "test.js")
         assert result is None
     
-    def test_check_long_lines(self):
+    def test_check_long_lines(self) -> None:
         """Test long line detection"""
         long_line = "x" * 150  # Create a line longer than 120 chars
         result = check_long_lines(long_line, 3)
@@ -332,12 +329,12 @@ class TestCheckerFunctions:
         assert result['severity'] == 'MINOR'
         assert "120 characters" in result['message']
     
-    def test_check_long_lines_ok(self):
+    def test_check_long_lines_ok(self) -> None:
         """Test short line passes"""
         result = check_long_lines("short line", 1)
         assert result is None
     
-    def test_check_hardcoded_credentials(self):
+    def test_check_hardcoded_credentials(self) -> None:
         """Test hardcoded credential detection"""
         result = check_hardcoded_credentials("password='secret123'", 8)
         assert result is not None
@@ -345,12 +342,12 @@ class TestCheckerFunctions:
         assert result['type'] == 'vulnerability'
         assert result['severity'] == 'BLOCKER'
     
-    def test_check_hardcoded_credentials_comment(self):
+    def test_check_hardcoded_credentials_comment(self) -> None:
         """Test credentials in comments are ignored"""
         result = check_hardcoded_credentials("# password='example'", 1)
         assert result is None
     
-    def test_check_unused_imports(self):
+    def test_check_unused_imports(self) -> None:
         """Test unused import detection"""
         content = "import json\nprint('hello')"  # json not used
         result = check_unused_imports("import json", 1, content, "test.py")
@@ -359,7 +356,7 @@ class TestCheckerFunctions:
         assert result['severity'] == 'MINOR'
         assert 'json' in result['message']
     
-    def test_check_unused_imports_malformed(self):
+    def test_check_unused_imports_malformed(self) -> None:
         """Test unused import detection with malformed import line"""
         content = "print('hello')"
         result = check_unused_imports("import", 1, content, "test.py")  # Malformed import
@@ -369,7 +366,7 @@ class TestCheckerFunctions:
 class TestMainHelperFunctions:
     """Test the new helper functions from main() refactoring"""
     
-    def test_create_argument_parser(self):
+    def test_create_argument_parser(self) -> None:
         """Test argument parser creation"""
         parser = _create_argument_parser()
         
@@ -383,7 +380,7 @@ class TestMainHelperFunctions:
         assert args.output == False
         assert args.concurrent == 4
     
-    def test_create_argument_parser_with_options(self):
+    def test_create_argument_parser_with_options(self) -> None:
         """Test argument parser with all options"""
         parser = _create_argument_parser()
         
@@ -406,7 +403,7 @@ class TestMainHelperFunctions:
         assert args.concurrent == 8
     
     @patch('cli_file.logging.basicConfig')
-    def test_configure_logging_verbose(self, mock_basic_config):
+    def test_configure_logging_verbose(self, mock_basic_config: Mock) -> None:
         """Test logging configuration in verbose mode"""
         _configure_logging(True)
         mock_basic_config.assert_called_once()
@@ -416,7 +413,7 @@ class TestMainHelperFunctions:
         assert '[%(asctime)s]' in call_args['format']
     
     @patch('cli_file.logging.basicConfig')
-    def test_configure_logging_quiet(self, mock_basic_config):
+    def test_configure_logging_quiet(self, mock_basic_config: Mock) -> None:
         """Test logging configuration in quiet mode"""
         _configure_logging(False)
         mock_basic_config.assert_called_once()
@@ -425,7 +422,7 @@ class TestMainHelperFunctions:
         assert call_args['level'] == logging.WARNING
     
     @patch('glob.glob')
-    def test_expand_file_patterns_with_glob(self, mock_glob):
+    def test_expand_file_patterns_with_glob(self, mock_glob: Mock) -> None:
         """Test file pattern expansion with glob matches"""
         mock_glob.return_value = ['file1.py', 'file2.py']
         
@@ -435,7 +432,7 @@ class TestMainHelperFunctions:
         assert result == ['file1.py', 'file2.py']
     
     @patch('glob.glob')
-    def test_expand_file_patterns_no_glob(self, mock_glob):
+    def test_expand_file_patterns_no_glob(self, mock_glob: Mock) -> None:
         """Test file pattern expansion without glob matches"""
         mock_glob.return_value = []
         
@@ -444,7 +441,7 @@ class TestMainHelperFunctions:
         assert result == ['specific_file.py']
     
     @patch('glob.glob')
-    def test_expand_file_patterns_deduplication(self, mock_glob):
+    def test_expand_file_patterns_deduplication(self, mock_glob: Mock) -> None:
         """Test file pattern deduplication"""
         mock_glob.side_effect = [['file1.py'], ['file1.py', 'file2.py']]
         
@@ -453,7 +450,7 @@ class TestMainHelperFunctions:
         # Should deduplicate file1.py
         assert result == ['file1.py', 'file2.py']
     
-    def test_validate_files_all_valid(self):
+    def test_validate_files_all_valid(self) -> None:
         """Test file validation with all valid files"""
         with tempfile.TemporaryDirectory() as temp_dir:
             file1 = os.path.join(temp_dir, "file1.py")
@@ -469,7 +466,7 @@ class TestMainHelperFunctions:
             assert file1 in result
             assert file2 in result
     
-    def test_validate_files_some_invalid(self):
+    def test_validate_files_some_invalid(self) -> None:
         """Test file validation with some invalid files"""
         with tempfile.TemporaryDirectory() as temp_dir:
             valid_file = os.path.join(temp_dir, "valid.py")
@@ -483,14 +480,14 @@ class TestMainHelperFunctions:
             assert len(result) == 1
             assert result[0] == valid_file
     
-    def test_validate_files_none_valid(self):
+    def test_validate_files_none_valid(self) -> None:
         """Test file validation with no valid files"""
         result = _validate_files(["nonexistent1.py", "nonexistent2.py"])
         assert result is None
     
     @patch('cli_file.asyncio.run')
     @patch('cli_file.process_multiple_files_async')
-    def test_process_multiple_files(self, mock_process_async, mock_asyncio_run):
+    def test_process_multiple_files(self, mock_process_async: Mock, mock_asyncio_run: Mock) -> None:
         """Test multiple files processing"""
         mock_args = Mock()
         mock_args.host = 'http://localhost:11434'
@@ -510,7 +507,7 @@ class TestMainHelperFunctions:
     @patch('cli_file.read_file_content')
     @patch('cli_file.get_static_analysis_issues')
     @patch('cli_file.analyze_file_with_ollama_sync')
-    def test_process_single_file_with_issues(self, mock_analyze, mock_get_issues, mock_read_content):
+    def test_process_single_file_with_issues(self, mock_analyze: Mock, mock_get_issues: Mock, mock_read_content: Mock) -> None:
         """Test single file processing with issues found"""
         mock_args = Mock()
         mock_args.verbose = False
@@ -534,7 +531,7 @@ class TestMainHelperFunctions:
     @patch('cli_file.read_file_content')
     @patch('cli_file.get_static_analysis_issues')
     @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
-    def test_process_single_file_no_issues(self, mock_get_issues, mock_read_content):
+    def test_process_single_file_no_issues(self, mock_get_issues: Mock, mock_read_content: Mock) -> None:
         """Test single file processing with no issues"""
         mock_args = Mock()
         mock_read_content.return_value = "# clean code"
@@ -547,7 +544,7 @@ class TestMainHelperFunctions:
         mock_get_issues.assert_called_once_with('test.py')
     
     @patch('cli_file.read_file_content')
-    def test_process_single_file_read_error(self, mock_read_content):
+    def test_process_single_file_read_error(self, mock_read_content: Mock) -> None:
         """Test single file processing with read error"""
         mock_args = Mock()
         mock_read_content.return_value = None  # Read error
@@ -560,7 +557,7 @@ class TestMainHelperFunctions:
 class TestIntegration:
     """Integration tests for complete workflows"""
     
-    def test_file_filtering_integration(self):
+    def test_file_filtering_integration(self) -> None:
         """Test complete file filtering workflow"""
         # Create some test files
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -576,7 +573,7 @@ class TestIntegration:
     
     @patch('cli_file.analyze_file_with_ollama_sync')
     @patch('cli_file.get_static_analysis_issues')
-    def test_single_file_workflow_with_issues(self, mock_get_issues, mock_analyze):
+    def test_single_file_workflow_with_issues(self, mock_get_issues: Mock, mock_analyze: Mock) -> None:
         """Test complete workflow for single file with issues"""
         # Setup mocks
         mock_get_issues.return_value = [
@@ -605,7 +602,7 @@ class TestIntegration:
     @patch('cli_file.analyze_file_with_ollama_sync')
     @patch('cli_file.get_static_analysis_issues')
     @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
-    def test_single_file_workflow_no_issues(self, mock_get_issues, mock_analyze):
+    def test_single_file_workflow_no_issues(self, mock_get_issues: Mock, mock_analyze: Mock) -> None:
         """Test complete workflow for single file without issues"""
         # Setup mocks
         mock_get_issues.return_value = []  # No issues
@@ -631,7 +628,7 @@ class TestIntegration:
     
     @patch('cli_file.asyncio.run')
     @patch('cli_file.process_multiple_files_async')
-    def test_multiple_files_workflow(self, mock_process_async, mock_asyncio_run):
+    def test_multiple_files_workflow(self, mock_process_async: Mock, mock_asyncio_run: Mock) -> None:
         """Test complete workflow for multiple files"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create test files
@@ -654,7 +651,7 @@ class TestIntegration:
             assert mock_process_async.called
     
     @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
-    def test_output_to_markdown_workflow(self):
+    def test_output_to_markdown_workflow(self) -> None:
         """Test complete workflow with markdown output"""
         with patch('cli_file.save_to_markdown') as mock_save, \
              patch('cli_file.analyze_file_with_ollama_sync') as mock_analyze, \
@@ -688,7 +685,7 @@ class TestIntegration:
                 os.unlink(temp_file)
     
     @patch('glob.glob')
-    def test_glob_pattern_workflow(self, mock_glob):
+    def test_glob_pattern_workflow(self, mock_glob: Mock) -> None:
         """Test complete workflow with glob patterns"""
         # Mock glob to return specific files
         mock_glob.return_value = ['src/file1.py', 'src/file2.py']
@@ -701,7 +698,7 @@ class TestIntegration:
         assert 'src/file2.py' in expanded
         mock_glob.assert_called_once_with('src/*.py')
     
-    def test_end_to_end_static_analysis(self):
+    def test_end_to_end_static_analysis(self) -> None:
         """Test end-to-end static analysis detection"""
         # Create a file with known issues
         with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
@@ -746,7 +743,7 @@ class TestAsyncProcessing:
     @patch('cli_file.analyze_file_with_ollama_async')
     @patch('cli_file.get_static_analysis_issues')
     @patch('cli_file.read_file_content')
-    async def test_process_multiple_files_async_with_issues(self, mock_read, mock_get_issues, mock_analyze):
+    async def test_process_multiple_files_async_with_issues(self, mock_read: Mock, mock_get_issues: Mock, mock_analyze: Mock) -> None:
         """Test process_multiple_files_async with files that have issues"""
         
         # Setup mocks
@@ -775,7 +772,7 @@ class TestAsyncProcessing:
     @pytest.mark.asyncio
     @patch('cli_file.get_static_analysis_issues')
     @patch('cli_file.read_file_content')
-    async def test_process_multiple_files_async_no_issues(self, mock_read, mock_get_issues):
+    async def test_process_multiple_files_async_no_issues(self, mock_read: Mock, mock_get_issues: Mock) -> None:
         """Test process_multiple_files_async with files that have no issues"""
         # Setup mocks
         mock_read.side_effect = ["# clean file1", "# clean file2"]
@@ -796,7 +793,7 @@ class TestAsyncProcessing:
     
     @pytest.mark.asyncio
     @patch('cli_file.read_file_content')
-    async def test_process_multiple_files_async_read_error(self, mock_read):
+    async def test_process_multiple_files_async_read_error(self, mock_read: Mock) -> None:
         """Test process_multiple_files_async with file read errors"""
         # Setup mock to return None (read error)
         mock_read.side_effect = [None, None]
@@ -819,7 +816,7 @@ class TestAsyncProcessing:
     @patch('cli_file.get_static_analysis_issues')
     @patch('cli_file.read_file_content')
     @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
-    async def test_process_multiple_files_async_with_save(self, mock_read, mock_get_issues, mock_analyze, mock_save):
+    async def test_process_multiple_files_async_with_save(self, mock_read: Mock, mock_get_issues: Mock, mock_analyze: Mock, mock_save: Mock) -> None:
         """Test process_multiple_files_async with save_output=True"""
         
         # Setup mocks
@@ -845,7 +842,7 @@ class TestAsyncProcessing:
     @patch('cli_file.analyze_file_with_ollama_async')
     @patch('cli_file.get_static_analysis_issues') 
     @patch('cli_file.read_file_content')
-    async def test_process_multiple_files_async_large_file(self, mock_read, mock_get_issues, mock_analyze):
+    async def test_process_multiple_files_async_large_file(self, mock_read: Mock, mock_get_issues: Mock, mock_analyze: Mock) -> None:
         """Test process_multiple_files_async with large file truncation"""
         
         # Setup large file content (> 100KB)
@@ -877,7 +874,7 @@ class TestAsyncProcessing:
     @patch('cli_file.analyze_file_with_ollama_async')
     @patch('cli_file.get_static_analysis_issues')
     @patch('cli_file.read_file_content')
-    async def test_process_multiple_files_async_streaming(self, mock_read, mock_get_issues, mock_analyze):
+    async def test_process_multiple_files_async_streaming(self, mock_read: Mock, mock_get_issues: Mock, mock_analyze: Mock) -> None:
         """Test process_multiple_files_async with streaming enabled"""
         
         # Setup mocks
@@ -922,7 +919,7 @@ class TestMainCliFile:
     @patch('cli_file._configure_logging')
     @patch('cli_file._create_argument_parser')
     @patch('sys.argv', ['cli_file.py', 'test.py'])
-    def test_main_single_file_success(self, mock_parser, mock_logging, mock_expand, mock_validate, mock_process_single):
+    def test_main_single_file_success(self, mock_parser: Mock, mock_logging: Mock, mock_expand: Mock, mock_validate: Mock, mock_process_single: Mock) -> None:
         """Test main() with single file processing"""
         from cli_file import main
         
@@ -953,7 +950,7 @@ class TestMainCliFile:
     @patch('cli_file._configure_logging')
     @patch('cli_file._create_argument_parser')
     @patch('sys.argv', ['cli_file.py', 'file1.py', 'file2.py'])
-    def test_main_multiple_files_success(self, mock_parser, mock_logging, mock_expand, mock_validate, mock_process_multiple):
+    def test_main_multiple_files_success(self, mock_parser: Mock, mock_logging: Mock, mock_expand: Mock, mock_validate: Mock, mock_process_multiple: Mock) -> None:
         """Test main() with multiple files processing"""
         from cli_file import main
         
@@ -983,7 +980,7 @@ class TestMainCliFile:
     @patch('cli_file._configure_logging')
     @patch('cli_file._create_argument_parser')
     @patch('sys.argv', ['cli_file.py', 'nonexistent.py'])
-    def test_main_no_valid_files(self, mock_parser, mock_logging, mock_expand, mock_validate):
+    def test_main_no_valid_files(self, mock_parser: Mock, mock_logging: Mock, mock_expand: Mock, mock_validate: Mock) -> None:
         """Test main() when no valid files are found"""
         from cli_file import main
         
@@ -1012,7 +1009,7 @@ class TestMainCliFile:
     @patch('cli_file._configure_logging')
     @patch('cli_file._create_argument_parser')
     @patch('sys.argv', ['cli_file.py', '*.py', '--verbose'])
-    def test_main_with_glob_patterns(self, mock_parser, mock_logging, mock_expand, mock_validate, mock_process_single):
+    def test_main_with_glob_patterns(self, mock_parser: Mock, mock_logging: Mock, mock_expand: Mock, mock_validate: Mock, mock_process_single: Mock) -> None:
         """Test main() with glob patterns"""
         from cli_file import main
         
@@ -1041,7 +1038,7 @@ class TestMainCliFile:
     @patch('cli_file._configure_logging')
     @patch('cli_file._create_argument_parser')
     @patch('sys.argv', ['cli_file.py', 'src/*.py', '--concurrent', '8'])
-    def test_main_integration_workflow(self, mock_parser, mock_logging, mock_expand, mock_validate, mock_process_multiple):
+    def test_main_integration_workflow(self, mock_parser: Mock, mock_logging: Mock, mock_expand: Mock, mock_validate: Mock, mock_process_multiple: Mock) -> None:
         """Test main() complete integration workflow"""
         from cli_file import main
         

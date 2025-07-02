@@ -11,32 +11,38 @@ from ollama import Client
 logger = logging.getLogger(__name__)
 
 
-def send_prompt(host, model, prompt, is_streaming):
+def send_prompt(host: str, model: str, prompt: str, is_streaming: bool) -> None:
     """Send prompt to Ollama using the standard Client"""
     try:
         # Configure Ollama client with external URL
         client = Client(host=host)
 
         # Send prompt to Ollama
-        response = client.chat(
-            model=model,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': 'You are a code analysis assistant. Provide detailed and structured analysis of repositories.'
-                },
-                {
-                    'role': 'user',
-                    'content': prompt
-                }
-            ],
-            stream=is_streaming
-        )
-
+        messages = [
+            {
+                'role': 'system',
+                'content': 'You are a code analysis assistant. Provide detailed and structured analysis of repositories.'
+            },
+            {
+                'role': 'user',
+                'content': prompt
+            }
+        ]
+        
         if is_streaming:
-            for chunk in response:
+            streaming_response = client.chat(
+                model=model,
+                messages=messages,
+                stream=True
+            )
+            for chunk in streaming_response:
                 print(chunk['message']['content'], end='', flush=True)
         else:
+            response = client.chat(
+                model=model,
+                messages=messages,
+                stream=False
+            )
             # Extract and display response
             if 'message' in response and 'content' in response['message']:
                 print(response['message']['content'])
@@ -45,7 +51,7 @@ def send_prompt(host, model, prompt, is_streaming):
 
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description='Ollama AI CLI Tool - Simple POC using Ollama',
         formatter_class=argparse.RawDescriptionHelpFormatter,

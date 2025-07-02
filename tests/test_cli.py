@@ -17,7 +17,7 @@ class TestSendPrompt:
     """Test prompt sending functionality"""
     
     @patch('cli.Client')
-    def test_send_prompt_non_streaming(self, mock_client_class):
+    def test_send_prompt_non_streaming(self, mock_client_class: Mock) -> None:
         """Test prompt without streaming"""
         # Setup mock
         mock_client = Mock()
@@ -46,7 +46,7 @@ class TestSendPrompt:
         assert call_args[1]['messages'][1]['content'] == "Test prompt"
     
     @patch('cli.Client')
-    def test_send_prompt_streaming(self, mock_client_class, mock_streaming_response):
+    def test_send_prompt_streaming(self, mock_client_class: Mock, mock_streaming_response: Mock) -> None:
         """Test prompt with streaming"""
         # Setup mock
         mock_client = Mock()
@@ -70,7 +70,7 @@ class TestSendPrompt:
         assert call_args[1]['stream'] == True
     
     @patch('cli.Client')
-    def test_send_prompt_connection_error(self, mock_client_class):
+    def test_send_prompt_connection_error(self, mock_client_class: Mock) -> None:
         """Test prompt with connection error"""
         # Setup mock to raise exception
         mock_client = Mock()
@@ -89,7 +89,7 @@ class TestSendPrompt:
             pytest.fail("send_prompt should handle exceptions gracefully")
     
     @patch('cli.Client')
-    def test_send_prompt_invalid_response(self, mock_client_class):
+    def test_send_prompt_invalid_response(self, mock_client_class: Mock) -> None:
         """Test prompt with invalid response format"""
         # Setup mock with invalid response
         mock_client = Mock()
@@ -110,7 +110,7 @@ class TestSendPrompt:
 class TestArgumentParsing:
     """Test CLI argument parsing"""
     
-    def test_argument_parser_basic(self):
+    def test_argument_parser_basic(self) -> None:
         """Test basic argument parsing without async flag"""
         # Create parser like in simplified main()
         parser = argparse.ArgumentParser()
@@ -128,7 +128,7 @@ class TestArgumentParsing:
         assert args.stream == False
         assert args.verbose == False
     
-    def test_argument_parser_with_options(self):
+    def test_argument_parser_with_options(self) -> None:
         """Test argument parsing with all available options"""
         parser = argparse.ArgumentParser()
         parser.add_argument('--host', default='http://10.0.0.1:11434')
@@ -158,7 +158,7 @@ class TestMainFunction:
     
     @patch('cli.send_prompt')
     @patch('sys.argv', ['cli.py', 'Test prompt'])
-    def test_main_basic_usage(self, mock_send_prompt):
+    def test_main_basic_usage(self, mock_send_prompt: Mock) -> None:
         """Test main function with basic arguments"""
         from cli import main
         
@@ -175,7 +175,7 @@ class TestMainFunction:
     @patch('cli.send_prompt')
     @patch('sys.argv', ['cli.py', 'Test prompt', '--host', 'http://localhost:11434', '--model', 'llama3:8b', '--stream', '--verbose'])
     @patch('cli.logging.basicConfig')
-    def test_main_with_all_options(self, mock_logging, mock_send_prompt):
+    def test_main_with_all_options(self, mock_logging: Mock, mock_send_prompt: Mock) -> None:
         """Test main function with all options"""
         from cli import main
         
@@ -186,7 +186,7 @@ class TestMainFunction:
             'http://localhost:11434',  # specified host
             'llama3:8b',              # specified model
             'Test prompt',            # prompt
-            True                      # stream=True
+            True                      # stream
         )
         
         # Verify logging was configured for verbose mode
@@ -197,7 +197,7 @@ class TestMainFunction:
     @patch('cli.send_prompt')
     @patch('sys.argv', ['cli.py', 'Test prompt', '--verbose'])
     @patch('cli.logging.basicConfig')
-    def test_main_verbose_logging(self, mock_logging, mock_send_prompt):
+    def test_main_verbose_logging(self, mock_logging: Mock, mock_send_prompt: Mock) -> None:
         """Test main function configures verbose logging"""
         from cli import main
         
@@ -213,7 +213,7 @@ class TestMainFunction:
     @patch('cli.send_prompt')
     @patch('sys.argv', ['cli.py', 'Test prompt'])
     @patch('cli.logging.basicConfig')
-    def test_main_quiet_logging(self, mock_logging, mock_send_prompt):
+    def test_main_quiet_logging(self, mock_logging: Mock, mock_send_prompt: Mock) -> None:
         """Test main function configures quiet logging by default"""
         from cli import main
         
@@ -228,7 +228,7 @@ class TestMainFunction:
 class TestIntegration:
     """Integration tests for cli.py"""
     
-    def test_host_parameter_passed_correctly(self):
+    def test_host_parameter_passed_correctly(self) -> None:
         """Test that host parameter is passed correctly to client"""
         test_hosts = [
             "http://localhost:11434",
@@ -245,7 +245,7 @@ class TestIntegration:
                 send_prompt(host, "mistral:latest", "test", False)
                 mock_client_class.assert_called_with(host=host)
     
-    def test_model_parameter_passed_correctly(self):
+    def test_model_parameter_passed_correctly(self) -> None:
         """Test that model parameter is passed correctly to chat"""
         test_models = [
             "mistral:latest",

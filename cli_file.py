@@ -10,14 +10,15 @@ import asyncio
 import logging
 import time
 from pathlib import Path
-from ollama import Client, AsyncClient
+from typing import Optional, List, Dict, Any
+from ollama import Client, AsyncClient, ChatResponse
 from datetime import datetime
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Language mapping for file extensions
-LANGUAGE_MAP = {
+LANGUAGE_MAP: Dict[str, str] = {
     '.py': 'Python',
     '.js': 'JavaScript',
     '.ts': 'TypeScript',
@@ -41,7 +42,7 @@ LANGUAGE_MAP = {
 }
 
 
-def build_sonar_analysis_prompt(language, file_path, sonar_issues, content):
+def build_sonar_analysis_prompt(language: str, file_path: str, sonar_issues: Optional[List[Dict[str, Any]]], content: str) -> str:
     """Build the analysis prompt for SonarQube issues"""
     # Build SonarQube issues section if available
     sonar_section = ""
@@ -107,7 +108,7 @@ def build_sonar_analysis_prompt(language, file_path, sonar_issues, content):
     """
 
 
-def check_todo_comments(line, line_number):
+def check_todo_comments(line: str, line_number: int) -> Optional[Dict[str, Any]]:
     """Check for TODO/FIXME comments"""
     if 'TODO' in line.upper() or 'FIXME' in line.upper():
         return {
@@ -120,7 +121,7 @@ def check_todo_comments(line, line_number):
     return None
 
 
-def check_print_statements(line, line_number, file_path):
+def check_print_statements(line: str, line_number: int, file_path: str) -> Optional[Dict[str, Any]]:
     """Check for print statements in Python files"""
     if 'print(' in line and file_path.endswith('.py'):
         return {
@@ -133,7 +134,7 @@ def check_print_statements(line, line_number, file_path):
     return None
 
 
-def check_long_lines(line, line_number):
+def check_long_lines(line: str, line_number: int) -> Optional[Dict[str, Any]]:
     """Check for lines that are too long"""
     if len(line) > 120:
         return {
@@ -146,7 +147,7 @@ def check_long_lines(line, line_number):
     return None
 
 
-def check_empty_catch_blocks(line, line_number, lines, file_path):
+def check_empty_catch_blocks(line: str, line_number: int, lines: List[str], file_path: str) -> Optional[Dict[str, Any]]:
     """Check for empty catch blocks in Python"""
     stripped_line = line.strip()
     if file_path.endswith('.py') and 'except:' in stripped_line and line_number < len(lines):
@@ -162,7 +163,7 @@ def check_empty_catch_blocks(line, line_number, lines, file_path):
     return None
 
 
-def check_hardcoded_credentials(line, line_number):
+def check_hardcoded_credentials(line: str, line_number: int) -> Optional[Dict[str, Any]]:
     """Check for hardcoded credentials"""
     keywords = ['password=', 'secret=', 'api_key=', 'token=', 'secret_key']
     if any(keyword in line.lower() for keyword in keywords):
@@ -177,7 +178,7 @@ def check_hardcoded_credentials(line, line_number):
     return None
 
 
-def check_unused_imports(line, line_number, content, file_path):
+def check_unused_imports(line: str, line_number: int, content: str, file_path: str) -> Optional[Dict[str, Any]]:
     """Check for unused imports in Python files"""
     if file_path.endswith('.py') and line.strip().startswith('import ') and 'import os' not in line:
         try:
@@ -195,7 +196,7 @@ def check_unused_imports(line, line_number, content, file_path):
     return None
 
 
-def get_static_analysis_issues(file_path):
+def get_static_analysis_issues(file_path: str) -> List[Dict[str, Any]]:
     """Perform static analysis to find code issues"""
     try:
         logger.info("🔍 Running static analysis...")
@@ -234,7 +235,7 @@ def get_static_analysis_issues(file_path):
         return []
 
 
-def read_file_content(file_path):
+def read_file_content(file_path: str) -> Optional[str]:
     """Read and return file content with error handling"""
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -251,14 +252,14 @@ def read_file_content(file_path):
         return None
 
 
-def generate_output_filename(input_file):
+def generate_output_filename(input_file: str) -> str:
     """Generate output filename with timestamp"""
     base_name = Path(input_file).stem
     timestamp = datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
     return f"{base_name}_analysis_{timestamp}.md"
 
 
-def save_to_markdown(output_file, content, analyzed_file, output_dir=None):
+def save_to_markdown(output_file: str, content: str, analyzed_file: str, output_dir: Optional[str] = None) -> None:
     """Save analysis content to a markdown file"""
     try:
         # Determine full output path
@@ -278,7 +279,7 @@ def save_to_markdown(output_file, content, analyzed_file, output_dir=None):
         logger.error(f"❌ Error saving to file: {e}")
 
 
-def _prepare_analysis_context(file_path, content, sonar_issues):
+def _prepare_analysis_context(file_path: str, content: str, sonar_issues: Optional[List[Dict[str, Any]]]) -> tuple[str, str]:
     """Prepare analysis context and prompt"""
     file_ext = Path(file_path).suffix.lower()
     language = LANGUAGE_MAP.get(file_ext, 'Unknown')
@@ -286,7 +287,7 @@ def _prepare_analysis_context(file_path, content, sonar_issues):
     return language, prompt
 
 
-def _log_analysis_start(language, file_path, content, save_to_file):
+def _log_analysis_start(language: str, file_path: str, content: str, save_to_file: bool) -> None:
     """Log analysis start information"""
     if not save_to_file:
         logger.info(f"🔍 Analyzing {language} file: {file_path}")
@@ -297,7 +298,7 @@ def _log_analysis_start(language, file_path, content, save_to_file):
         logger.info("🤖 Generating analysis report...")
 
 
-def _get_system_message():
+def _get_system_message() -> Dict[str, str]:
     """Get the system message for Ollama"""
     return {
         'role': 'system',
@@ -305,7 +306,7 @@ def _get_system_message():
     }
 
 
-def _process_streaming_response(response, save_to_file):
+def _process_streaming_response(response: Any, save_to_file: bool) -> str:
     """Process streaming response from Ollama"""
     full_response = ""
     for chunk in response:
@@ -316,7 +317,7 @@ def _process_streaming_response(response, save_to_file):
     return full_response
 
 
-async def _process_async_streaming_response(response, save_to_file):
+async def _process_async_streaming_response(response: Any, save_to_file: bool) -> str:
     """Process async streaming response from Ollama"""
     full_response = ""
     async for chunk in response:
@@ -327,7 +328,7 @@ async def _process_async_streaming_response(response, save_to_file):
     return full_response
 
 
-def _process_non_streaming_response(response, file_path, save_to_file):
+def _process_non_streaming_response(response: ChatResponse, file_path: str, save_to_file: bool) -> Optional[str]:
     """Process non-streaming response from Ollama"""
     if 'message' in response and 'content' in response['message']:
         response_content = response['message']['content']
@@ -338,13 +339,13 @@ def _process_non_streaming_response(response, file_path, save_to_file):
             print(response_content)
             print("\\n" + "=" * 80)
             logger.info("✅ Analysis completed!")
-        return response_content
+        return str(response_content)
     else:
         logger.error("❌ Error: No response content received from Ollama")
         return None
 
 
-def analyze_file_with_ollama_sync(host, model, file_path, content, is_streaming, sonar_issues=None, save_to_file=False):
+def analyze_file_with_ollama_sync(host: str, model: str, file_path: str, content: str, is_streaming: bool, sonar_issues: Optional[List[Dict[str, Any]]] = None, save_to_file: bool = False) -> Optional[str]:
     """Send file content to Ollama for analysis synchronously"""
     try:
         # Prepare analysis context
@@ -355,19 +356,25 @@ def analyze_file_with_ollama_sync(host, model, file_path, content, is_streaming,
         client = Client(host=host)
         
         # Send prompt to Ollama
-        response = client.chat(
-            model=model,
-            messages=[
-                _get_system_message(),
-                {'role': 'user', 'content': prompt}
-            ],
-            stream=is_streaming,
-        )
-
+        messages = [
+            _get_system_message(),
+            {'role': 'user', 'content': prompt}
+        ]
+        
         # Process response
         if is_streaming:
-            return _process_streaming_response(response, save_to_file)
+            streaming_response = client.chat(
+                model=model,
+                messages=messages,
+                stream=True,
+            )
+            return _process_streaming_response(streaming_response, save_to_file)
         else:
+            response = client.chat(
+                model=model,
+                messages=messages,
+                stream=False,
+            )
             return _process_non_streaming_response(response, file_path, save_to_file)
             
     except Exception as e:
@@ -375,7 +382,7 @@ def analyze_file_with_ollama_sync(host, model, file_path, content, is_streaming,
         return None
 
 
-async def analyze_file_with_ollama_async(host, model, file_path, content, is_streaming, sonar_issues=None, save_to_file=False):
+async def analyze_file_with_ollama_async(host: str, model: str, file_path: str, content: str, is_streaming: bool, sonar_issues: Optional[List[Dict[str, Any]]] = None, save_to_file: bool = False) -> Optional[str]:
     """Send file content to Ollama for analysis asynchronously"""
     try:
         # Prepare analysis context
@@ -386,19 +393,25 @@ async def analyze_file_with_ollama_async(host, model, file_path, content, is_str
         client = AsyncClient(host=host)
         
         # Send prompt to Ollama asynchronously
-        response = await client.chat(
-            model=model,
-            messages=[
-                _get_system_message(),
-                {'role': 'user', 'content': prompt}
-            ],
-            stream=is_streaming,
-        )
-
+        messages = [
+            _get_system_message(),
+            {'role': 'user', 'content': prompt}
+        ]
+        
         # Process response
         if is_streaming:
-            return await _process_async_streaming_response(response, save_to_file)
+            streaming_response = await client.chat(
+                model=model,
+                messages=messages,
+                stream=True,
+            )
+            return await _process_async_streaming_response(streaming_response, save_to_file)
         else:
+            response = await client.chat(
+                model=model,
+                messages=messages,
+                stream=False,
+            )
             return _process_non_streaming_response(response, file_path, save_to_file)
             
     except Exception as e:
@@ -406,12 +419,12 @@ async def analyze_file_with_ollama_async(host, model, file_path, content, is_str
         return None
 
 
-async def process_multiple_files_async(host, model, file_paths, save_output=False, max_concurrent=3, output_dir=None, stream_enabled=False):
+async def process_multiple_files_async(host: str, model: str, file_paths: List[str], save_output: bool = False, max_concurrent: int = 3, output_dir: Optional[str] = None, stream_enabled: bool = False) -> List[Optional[str]]:
     """Process multiple files concurrently with rate limiting"""
     start_total = time.time()
     semaphore = asyncio.Semaphore(max_concurrent)
     
-    async def process_file(file_path):
+    async def process_file(file_path: str) -> Optional[str]:
         async with semaphore:
             start_time = time.time()
             logger.info(f"⏳ Processing: {file_path}")
@@ -464,7 +477,7 @@ async def process_multiple_files_async(host, model, file_paths, save_output=Fals
 
 
 
-def _create_argument_parser():
+def _create_argument_parser() -> argparse.ArgumentParser:
     """Create and configure the argument parser"""
     parser = argparse.ArgumentParser(
         description='Ollama AI CLI Tool - File Analysis using Ollama',
@@ -497,7 +510,7 @@ def _create_argument_parser():
     return parser
 
 
-def _configure_logging(verbose):
+def _configure_logging(verbose: bool) -> None:
     """Configure logging based on verbosity level"""
     log_level = logging.DEBUG if verbose else logging.WARNING
     logging.basicConfig(
@@ -507,7 +520,7 @@ def _configure_logging(verbose):
     )
 
 
-def _expand_file_patterns(patterns):
+def _expand_file_patterns(patterns: List[str]) -> List[str]:
     """Expand glob patterns and return list of files"""
     import glob
     all_files = []
@@ -523,7 +536,7 @@ def _expand_file_patterns(patterns):
     return list(dict.fromkeys(all_files))
 
 
-def _validate_files(all_files):
+def _validate_files(all_files: List[str]) -> Optional[List[str]]:
     """Validate that files exist and are readable"""
     valid_files = []
     for file_path in all_files:
@@ -539,14 +552,14 @@ def _validate_files(all_files):
     return valid_files
 
 
-def _process_multiple_files(args, valid_files):
+def _process_multiple_files(args: argparse.Namespace, valid_files: List[str]) -> int:
     """Process multiple files in async mode"""
     logger.info(f"🚀 Analyzing {len(valid_files)} file(s) in async mode with max {args.concurrent} concurrent requests...")
     asyncio.run(process_multiple_files_async(args.host, args.model, valid_files, args.output, args.concurrent, args.output_dir, args.stream))
     return 0
 
 
-def _process_single_file(args, file_path):
+def _process_single_file(args: argparse.Namespace, file_path: str) -> int:
     """Process a single file in sync mode"""
     content = read_file_content(file_path)
     if content is None:
@@ -588,7 +601,7 @@ def _process_single_file(args, file_path):
     return 0
 
 
-def main():
+def main() -> int:
     """Main entry point for the CLI application"""
     # Parse arguments
     parser = _create_argument_parser()

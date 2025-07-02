@@ -5,12 +5,12 @@ Common test fixtures for Ollama CLI tools
 import pytest
 import tempfile
 import os
-from pathlib import Path
+from typing import Generator, AsyncGenerator, Iterator, List, Dict, Any
 from unittest.mock import Mock, AsyncMock
 
 
 @pytest.fixture
-def temp_file():
+def temp_file() -> Generator[str, None, None]:
     """Create a temporary file for testing"""
     with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
         f.write("""#!/usr/bin/env python3
@@ -41,14 +41,14 @@ except:
 
 
 @pytest.fixture
-def temp_dir():
+def temp_dir() -> Generator[str, None, None]:
     """Create a temporary directory for testing"""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield temp_dir
 
 
 @pytest.fixture
-def mock_ollama_client():
+def mock_ollama_client() -> Mock:
     """Mock Ollama client for testing"""
     mock_client = Mock()
     mock_response = {
@@ -61,7 +61,7 @@ def mock_ollama_client():
 
 
 @pytest.fixture
-def mock_ollama_async_client():
+def mock_ollama_async_client() -> AsyncMock:
     """Mock async Ollama client for testing"""
     mock_client = AsyncMock()
     mock_response = {
@@ -74,7 +74,7 @@ def mock_ollama_async_client():
 
 
 @pytest.fixture
-def mock_streaming_response():
+def mock_streaming_response() -> Iterator[Dict[str, Any]]:
     """Mock streaming response from Ollama"""
     chunks = [
         {'message': {'content': 'Mock '}},
@@ -85,7 +85,7 @@ def mock_streaming_response():
 
 
 @pytest.fixture
-def mock_async_streaming_response():
+def mock_async_streaming_response() -> AsyncGenerator[Dict[str, Any], None]:
     """Mock async streaming response from Ollama"""
     chunks = [
         {'message': {'content': 'Mock '}},
@@ -94,7 +94,7 @@ def mock_async_streaming_response():
         {'message': {'content': 'response'}}
     ]
     
-    async def async_generator():
+    async def async_generator() -> AsyncGenerator[Dict[str, Any], None]:
         for chunk in chunks:
             yield chunk
     
@@ -102,7 +102,7 @@ def mock_async_streaming_response():
 
 
 @pytest.fixture
-def sample_static_issues():
+def sample_static_issues() -> List[Dict[str, Any]]:
     """Sample static analysis issues for testing"""
     return [
         {
