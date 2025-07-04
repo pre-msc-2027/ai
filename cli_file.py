@@ -13,6 +13,7 @@ from pathlib import Path
 import time
 from typing import Any, Callable, Dict, List, Optional
 
+import ollama
 from ollama import AsyncClient, ChatResponse, Client
 
 # Configure logging
@@ -437,8 +438,14 @@ def analyze_file_with_ollama_sync(
             )
             return _process_non_streaming_response(response, file_path, save_to_file)
 
+    except ollama.ResponseError as e:
+        logger.error(f"❌ Ollama API error: {e.error}")
+        if e.status_code == 404:
+            logger.error(f"Model '{model}' not found. Try: ollama pull {model}")
+        return None
     except Exception as e:
-        logger.error(f"❌ Error communicating with Ollama: {e}")
+        logger.error(f"❌ Unexpected error: {e}")
+        logger.error(f"Please check if Ollama is running at {host}")
         return None
 
 
@@ -484,8 +491,14 @@ async def analyze_file_with_ollama_async(
             )
             return _process_non_streaming_response(response, file_path, save_to_file)
 
+    except ollama.ResponseError as e:
+        logger.error(f"❌ Ollama API error: {e.error}")
+        if e.status_code == 404:
+            logger.error(f"Model '{model}' not found. Try: ollama pull {model}")
+        return None
     except Exception as e:
-        logger.error(f"❌ Error communicating with Ollama: {e}")
+        logger.error(f"❌ Unexpected error: {e}")
+        logger.error(f"Please check if Ollama is running at {host}")
         return None
 
 

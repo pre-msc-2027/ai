@@ -5,16 +5,22 @@ Ollama AI CLI Tool - Simple POC using Ollama
 
 import argparse
 import logging
+import sys
 from typing import Dict, List
 
+import ollama
 from ollama import Client
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 
-def send_prompt(host: str, model: str, prompt: str, is_streaming: bool) -> None:
-    """Send prompt to Ollama using the standard Client"""
+def send_prompt(host: str, model: str, prompt: str, is_streaming: bool) -> int:
+    """Send prompt to Ollama using the standard Client
+
+    Returns:
+        0 on success, 1 on error
+    """
     try:
         # Configure Ollama client with external URL
         client = Client(host=host)
@@ -42,11 +48,24 @@ def send_prompt(host: str, model: str, prompt: str, is_streaming: bool) -> None:
             # Extract and display response
             if "message" in response and "content" in response["message"]:
                 print(response["message"]["content"])
+            else:
+                logger.error("Invalid response format from Ollama")
+                return 1
+
+        return 0
+
+    except ollama.ResponseError as e:
+        logger.error(f"Ollama API error: {e.error}")
+        if e.status_code == 404:
+            logger.error(f"Model '{model}' not found. Try: ollama pull {model}")
+        return 1
     except Exception as e:
-        logger.error(f"Error communicating with Ollama: {e}")
+        logger.error(f"Unexpected error: {e}")
+        logger.error(f"Please check if Ollama is running at {host}")
+        return 1
 
 
-def main() -> None:
+def main() -> int:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         description="Ollama AI CLI Tool - Simple POC using Ollama",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -87,8 +106,8 @@ def main() -> None:
     )
 
     # Send prompt to Ollama
-    send_prompt(args.host, args.model, args.prompt, args.stream)
+    return send_prompt(args.host, args.model, args.prompt, args.stream)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
