@@ -712,7 +712,6 @@ class TestIntegration:
             patch("cli_file.analyze_file_with_ollama_sync") as mock_analyze,
             patch("cli_file.get_static_analysis_issues") as mock_get_issues,
         ):
-
             # Setup mocks explicitly as regular Mock objects
             mock_get_issues.return_value = [
                 {
