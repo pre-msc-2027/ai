@@ -124,13 +124,20 @@ Both tools support:
 
 ## 🧪 Development & Testing
 
+### Setup Development Environment
+
+```bash
+# Quick setup with script
+./setup.sh
+
+# Or manually:
+poetry install --with dev
+poetry run pre-commit install
+```
+
 ### Running Tests
 
-With Poetry:
 ```bash
-# Install dev dependencies
-poetry install --with dev
-
 # Run all tests
 poetry run pytest
 
@@ -154,3 +161,17 @@ poetry run pytest -v
 ### Coverage Reports
 
 HTML coverage reports are generated in `htmlcov/` directory after running tests with `--cov` flag.
+
+### Code Quality
+
+Pre-commit hooks run automatically on every commit to ensure code quality:
+- **Black**: Code formatting (88 char line length)
+- **isort**: Import sorting
+- **Flake8**: Linting
+- **Mypy**: Type checking
+- File cleanup (trailing whitespace, EOF, etc.)
+
+To run all checks manually:
+```bash
+poetry run pre-commit run --all-files
+```
