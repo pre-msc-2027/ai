@@ -11,3 +11,6 @@ htmlcov/
 .coverage
 .pytest_cache/
 __pycache__/
+
+# Test workspaces directory
+test_workspaces/

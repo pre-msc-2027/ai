@@ -92,6 +92,60 @@ poetry run python cli_file.py *.py -m llama3:8b --concurrent 5
 poetry run python cli_file.py app.py -v --stream
 ```
 
+### cli_workspace.py - Workspace File Management
+
+Interactive tool for AI-assisted file management within a secure workspace using Ollama's function calling capabilities.
+
+**Usage:**
+```bash
+python cli_workspace.py workspace prompt [options]
+```
+
+**Arguments:**
+- `workspace` - Path to the workspace directory (repository root)
+- `prompt` - Initial prompt/request for the AI
+
+**Options:**
+- `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
+- `-m, --model MODEL` - Model to use (default: llama3.1:latest)
+- `--max-iterations N` - Max conversation rounds (default: 10)
+- `-v, --verbose` - Enable verbose output
+
+**Examples:**
+```bash
+# Create a new README file
+poetry run python cli_workspace.py /path/to/repo "Create a README.md with project overview"
+
+# List and analyze Python files
+poetry run python cli_workspace.py . "Show me all Python files and their purpose"
+
+# Refactor code
+poetry run python cli_workspace.py ./src "Help me refactor the authentication module"
+
+# Interactive file management
+poetry run python cli_workspace.py /workspace "I need to reorganize the project structure"
+```
+
+**Available Tools:**
+- `read_file(file_path)` - Read file content
+- `write_file(file_path, content)` - Create/update files
+- `list_files(directory, pattern)` - List files with patterns
+- `create_directory(dir_path)` - Create directories
+- `delete_file(file_path)` - Delete files/directories
+- `append_to_file(file_path, content)` - Append content
+- `find_files(name_pattern, content_pattern)` - Search files
+- `get_workspace_info()` - Get workspace statistics
+
+**Security Features:**
+- All operations confined to specified workspace
+- Path validation prevents directory traversal
+- Detailed operation logging
+- Safe error handling
+
+**Requirements:**
+- Ollama 0.4+ with a model supporting function calling (e.g., Llama 3.1)
+```
+
 ## 📄 Output
 
 ### cli.py
@@ -101,9 +155,14 @@ Outputs the AI response directly to the console.
 - **Console**: Displays analysis results with code issues and recommendations
 - **Markdown files** (with `-o`): Saves detailed reports with format `filename_analysis_YYYY_MM_DD-HH_MM_SS.md`
 
+### cli_workspace.py
+- **Interactive mode**: Real-time conversation with AI for file operations
+- **Tool feedback**: Shows each tool call and its result
+- **Operation logs**: Detailed logging of all file operations
+
 ## ⚙️ Configuration
 
-Both tools support:
+All tools support:
 - Custom Ollama server URLs via `--host`
 - Different AI models via `--model`
 - Streaming vs. batch responses
@@ -121,6 +180,11 @@ Both tools support:
 **File analysis issues:**
 - Ensure files exist and are readable
 - Check file extensions are supported (.py, .js, .ts, .java, etc.)
+
+**Workspace management issues:**
+- Ensure workspace directory exists and is accessible
+- Check Ollama model supports function calling (e.g., Llama 3.1)
+- Verify file permissions for read/write operations
 
 ## 🧪 Development & Testing
 
