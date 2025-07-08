@@ -174,7 +174,7 @@ def check_empty_catch_blocks(
         and "except:" in stripped_line
         and line_number < len(lines)
     ):
-        next_line = lines[line_number].strip() if line_number < len(lines) else ""
+        next_line = lines[line_number].strip()
         if next_line.startswith("pass"):
             return {
                 "line": line_number,
