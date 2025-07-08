@@ -1,9 +1,24 @@
 import argparse
 import logging
+from typing import Any, List, Optional, Tuple
 
 from ollama import Client
+import requests
 
 from src.prompt_builder import build_prompt
+
+
+def get_issues(
+    scan_id: str, api_url: str = "http://localhost:8000/api/scans/analyse_with_rules"
+) -> Tuple[List[Any], Optional[str]]:
+    try:
+        response = requests.get(f"{api_url}/{scan_id}")
+        response.raise_for_status()
+        data = response.json()
+        return data.get("issues", []), data.get("project_path")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Erreur lors de la récupération des issues : {e}")
+        return [], None
 
 
 def main():
@@ -26,19 +41,7 @@ def main():
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
     logging.info(f"Lancement de l’analyse IA pour le scan {args.scan_id}")
 
-    issues = [
-        {
-            "id": "issue1",
-            "file": "src/app.py",
-            "line": 42,
-            "code_snippet": "password = input('Enter password: ')",
-            "rule_id": "insecure_input",
-            "rule_details": {
-                "description": "Ne pas utiliser input pour les mots de passe",
-                "severity": "high",
-            },
-        }
-    ]
+    issues, project_path = get_issues(args.scan_id)
 
     def extract_code_snippet(filepath, line_number, context=2):
         try:
@@ -77,6 +80,7 @@ def send_prompt_to_ollama(prompt: str, model: str, host: str) -> str:
         response = client.chat(
             model=model, messages=[{"role": "user", "content": prompt}]
         )
+        # return response.message.content
         return response["message"]["content"]
     except Exception as e:
         logging.error(f"Erreur lors de l'appel à Ollama : {e}")
