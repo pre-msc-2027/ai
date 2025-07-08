@@ -14,3 +14,5 @@ __pycache__/
 
 # Test workspaces directory
 test_workspaces/
+
+test_issues/
