@@ -361,7 +361,7 @@ def _process_streaming_response(response: Any, save_to_file: bool) -> str:
     """Process streaming response from Ollama"""
     full_response = ""
     for chunk in response:
-        content_chunk = chunk["message"]["content"]
+        content_chunk = chunk.message.content
         if not save_to_file:
             print(content_chunk, end="", flush=True)
         full_response += content_chunk
@@ -372,7 +372,7 @@ async def _process_async_streaming_response(response: Any, save_to_file: bool) -
     """Process async streaming response from Ollama"""
     full_response = ""
     async for chunk in response:
-        content_chunk = chunk["message"]["content"]
+        content_chunk = chunk.message.content
         if not save_to_file:
             print(content_chunk, end="", flush=True)
         full_response += content_chunk
@@ -383,8 +383,8 @@ def _process_non_streaming_response(
     response: ChatResponse, file_path: str, save_to_file: bool
 ) -> Optional[str]:
     """Process non-streaming response from Ollama"""
-    if "message" in response and "content" in response["message"]:
-        response_content = response["message"]["content"]
+    if hasattr(response, "message") and hasattr(response.message, "content"):
+        response_content = response.message.content
         if not save_to_file:
             print("=" * 80)
             print(f"📋 ANALYSIS REPORT FOR: {file_path}")

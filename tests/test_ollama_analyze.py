@@ -14,7 +14,7 @@ import pytest
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cli_file import (  # noqa: E402
+from ollama_analyze import (  # noqa: E402
     _configure_logging,
     _create_argument_parser,
     _expand_file_patterns,
@@ -190,7 +190,7 @@ class TestFileOperations:
 class TestOllamaIntegration:
     """Test Ollama integration (with mocks)"""
 
-    @patch("cli_file.Client")
+    @patch("ollama_analyze.Client")
     def test_analyze_file_with_ollama_sync_non_streaming(
         self,
         mock_client_class: Mock,
@@ -222,7 +222,7 @@ class TestOllamaIntegration:
         assert response == "Mock analysis response"
         mock_client.chat.assert_called_once()
 
-    @patch("cli_file.Client")
+    @patch("ollama_analyze.Client")
     def test_analyze_file_with_ollama_sync_streaming(
         self,
         mock_client_class: Mock,
@@ -254,7 +254,7 @@ class TestOllamaIntegration:
         mock_client.chat.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("cli_file.AsyncClient")
+    @patch("ollama_analyze.AsyncClient")
     async def test_analyze_file_with_ollama_async_non_streaming(
         self,
         mock_client_class: Mock,
@@ -286,7 +286,7 @@ class TestOllamaIntegration:
         assert response == "Mock async analysis response"
         mock_client.chat.assert_called_once()
 
-    @patch("cli_file.Client")
+    @patch("ollama_analyze.Client")
     def test_analyze_file_with_ollama_sync_connection_error(
         self,
         mock_client_class: Mock,
@@ -437,7 +437,7 @@ class TestMainHelperFunctions:
         assert args.output is True
         assert args.concurrent == 8
 
-    @patch("cli_file.logging.basicConfig")
+    @patch("ollama_analyze.logging.basicConfig")
     def test_configure_logging_verbose(self, mock_basic_config: Mock) -> None:
         """Test logging configuration in verbose mode"""
         _configure_logging(True)
@@ -447,7 +447,7 @@ class TestMainHelperFunctions:
         assert call_args["level"] == logging.DEBUG
         assert "[%(asctime)s]" in call_args["format"]
 
-    @patch("cli_file.logging.basicConfig")
+    @patch("ollama_analyze.logging.basicConfig")
     def test_configure_logging_quiet(self, mock_basic_config: Mock) -> None:
         """Test logging configuration in quiet mode"""
         _configure_logging(False)
@@ -520,8 +520,8 @@ class TestMainHelperFunctions:
         result = _validate_files(["nonexistent1.py", "nonexistent2.py"])
         assert result is None
 
-    @patch("cli_file.asyncio.run")
-    @patch("cli_file.process_multiple_files_async")
+    @patch("ollama_analyze.asyncio.run")
+    @patch("ollama_analyze.process_multiple_files_async")
     def test_process_multiple_files(
         self, mock_process_async: Mock, mock_asyncio_run: Mock
     ) -> None:
@@ -541,9 +541,9 @@ class TestMainHelperFunctions:
         assert result == 0
         mock_asyncio_run.assert_called_once()
 
-    @patch("cli_file.read_file_content")
-    @patch("cli_file.get_static_analysis_issues")
-    @patch("cli_file.analyze_file_with_ollama_sync")
+    @patch("ollama_analyze.read_file_content")
+    @patch("ollama_analyze.get_static_analysis_issues")
+    @patch("ollama_analyze.analyze_file_with_ollama_sync")
     def test_process_single_file_with_issues(
         self, mock_analyze: Mock, mock_get_issues: Mock, mock_read_content: Mock
     ) -> None:
@@ -567,8 +567,8 @@ class TestMainHelperFunctions:
         mock_get_issues.assert_called_once_with("test.py")
         mock_analyze.assert_called_once()
 
-    @patch("cli_file.read_file_content")
-    @patch("cli_file.get_static_analysis_issues")
+    @patch("ollama_analyze.read_file_content")
+    @patch("ollama_analyze.get_static_analysis_issues")
     @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
     def test_process_single_file_no_issues(
         self, mock_get_issues: Mock, mock_read_content: Mock
@@ -584,7 +584,7 @@ class TestMainHelperFunctions:
         mock_read_content.assert_called_once_with("test.py")
         mock_get_issues.assert_called_once_with("test.py")
 
-    @patch("cli_file.read_file_content")
+    @patch("ollama_analyze.read_file_content")
     def test_process_single_file_read_error(self, mock_read_content: Mock) -> None:
         """Test single file processing with read error"""
         mock_args = Mock()
@@ -614,8 +614,8 @@ class TestIntegration:
             assert len(valid_files) == 1
             assert valid_files[0] == valid_file
 
-    @patch("cli_file.analyze_file_with_ollama_sync")
-    @patch("cli_file.get_static_analysis_issues")
+    @patch("ollama_analyze.analyze_file_with_ollama_sync")
+    @patch("ollama_analyze.get_static_analysis_issues")
     def test_single_file_workflow_with_issues(
         self, mock_get_issues: Mock, mock_analyze: Mock
     ) -> None:
@@ -649,8 +649,8 @@ class TestIntegration:
         finally:
             os.unlink(temp_file)
 
-    @patch("cli_file.analyze_file_with_ollama_sync")
-    @patch("cli_file.get_static_analysis_issues")
+    @patch("ollama_analyze.analyze_file_with_ollama_sync")
+    @patch("ollama_analyze.get_static_analysis_issues")
     @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
     def test_single_file_workflow_no_issues(
         self, mock_get_issues: Mock, mock_analyze: Mock
@@ -678,8 +678,8 @@ class TestIntegration:
         finally:
             os.unlink(temp_file)
 
-    @patch("cli_file.asyncio.run")
-    @patch("cli_file.process_multiple_files_async")
+    @patch("ollama_analyze.asyncio.run")
+    @patch("ollama_analyze.process_multiple_files_async")
     def test_multiple_files_workflow(
         self, mock_process_async: Mock, mock_asyncio_run: Mock
     ) -> None:
@@ -802,9 +802,9 @@ class TestAsyncProcessing:
     """Test async processing functions that weren't covered"""
 
     @pytest.mark.asyncio
-    @patch("cli_file.analyze_file_with_ollama_async")
-    @patch("cli_file.get_static_analysis_issues")
-    @patch("cli_file.read_file_content")
+    @patch("ollama_analyze.analyze_file_with_ollama_async")
+    @patch("ollama_analyze.get_static_analysis_issues")
+    @patch("ollama_analyze.read_file_content")
     async def test_process_multiple_files_async_with_issues(
         self, mock_read: Mock, mock_get_issues: Mock, mock_analyze: Mock
     ) -> None:
@@ -834,8 +834,8 @@ class TestAsyncProcessing:
         assert mock_analyze.call_count == 2
 
     @pytest.mark.asyncio
-    @patch("cli_file.get_static_analysis_issues")
-    @patch("cli_file.read_file_content")
+    @patch("ollama_analyze.get_static_analysis_issues")
+    @patch("ollama_analyze.read_file_content")
     async def test_process_multiple_files_async_no_issues(
         self, mock_read: Mock, mock_get_issues: Mock
     ) -> None:
@@ -858,7 +858,7 @@ class TestAsyncProcessing:
         assert all(r is None for r in results)
 
     @pytest.mark.asyncio
-    @patch("cli_file.read_file_content")
+    @patch("ollama_analyze.read_file_content")
     async def test_process_multiple_files_async_read_error(
         self, mock_read: Mock
     ) -> None:
@@ -879,10 +879,10 @@ class TestAsyncProcessing:
         assert all(r is None for r in results)
 
     @pytest.mark.asyncio
-    @patch("cli_file.save_to_markdown")
-    @patch("cli_file.analyze_file_with_ollama_async")
-    @patch("cli_file.get_static_analysis_issues")
-    @patch("cli_file.read_file_content")
+    @patch("ollama_analyze.save_to_markdown")
+    @patch("ollama_analyze.analyze_file_with_ollama_async")
+    @patch("ollama_analyze.get_static_analysis_issues")
+    @patch("ollama_analyze.read_file_content")
     @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
     async def test_process_multiple_files_async_with_save(
         self,
@@ -913,9 +913,9 @@ class TestAsyncProcessing:
         mock_save.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("cli_file.analyze_file_with_ollama_async")
-    @patch("cli_file.get_static_analysis_issues")
-    @patch("cli_file.read_file_content")
+    @patch("ollama_analyze.analyze_file_with_ollama_async")
+    @patch("ollama_analyze.get_static_analysis_issues")
+    @patch("ollama_analyze.read_file_content")
     async def test_process_multiple_files_async_large_file(
         self, mock_read: Mock, mock_get_issues: Mock, mock_analyze: Mock
     ) -> None:
@@ -948,9 +948,9 @@ class TestAsyncProcessing:
         assert "... (truncated)" in truncated_content
 
     @pytest.mark.asyncio
-    @patch("cli_file.analyze_file_with_ollama_async")
-    @patch("cli_file.get_static_analysis_issues")
-    @patch("cli_file.read_file_content")
+    @patch("ollama_analyze.analyze_file_with_ollama_async")
+    @patch("ollama_analyze.get_static_analysis_issues")
+    @patch("ollama_analyze.read_file_content")
     async def test_process_multiple_files_async_streaming(
         self, mock_read: Mock, mock_get_issues: Mock, mock_analyze: Mock
     ) -> None:
@@ -993,12 +993,12 @@ class TestAsyncProcessing:
 class TestMainCliFile:
     """Test the main() function of cli_file.py"""
 
-    @patch("cli_file._process_single_file")
-    @patch("cli_file._validate_files")
-    @patch("cli_file._expand_file_patterns")
-    @patch("cli_file._configure_logging")
-    @patch("cli_file._create_argument_parser")
-    @patch("sys.argv", ["cli_file.py", "test.py"])
+    @patch("ollama_analyze._process_single_file")
+    @patch("ollama_analyze._validate_files")
+    @patch("ollama_analyze._expand_file_patterns")
+    @patch("ollama_analyze._configure_logging")
+    @patch("ollama_analyze._create_argument_parser")
+    @patch("sys.argv", ["ollama_analyze.py", "test.py"])
     def test_main_single_file_success(
         self,
         mock_parser: Mock,
@@ -1008,7 +1008,7 @@ class TestMainCliFile:
         mock_process_single: Mock,
     ) -> None:
         """Test main() with single file processing"""
-        from cli_file import main
+        from ollama_analyze import main
 
         # Setup mocks
         mock_args = Mock()
@@ -1031,12 +1031,12 @@ class TestMainCliFile:
         mock_validate.assert_called_once_with(["test.py"])
         mock_process_single.assert_called_once_with(mock_args, "test.py")
 
-    @patch("cli_file._process_multiple_files")
-    @patch("cli_file._validate_files")
-    @patch("cli_file._expand_file_patterns")
-    @patch("cli_file._configure_logging")
-    @patch("cli_file._create_argument_parser")
-    @patch("sys.argv", ["cli_file.py", "file1.py", "file2.py"])
+    @patch("ollama_analyze._process_multiple_files")
+    @patch("ollama_analyze._validate_files")
+    @patch("ollama_analyze._expand_file_patterns")
+    @patch("ollama_analyze._configure_logging")
+    @patch("ollama_analyze._create_argument_parser")
+    @patch("sys.argv", ["ollama_analyze.py", "file1.py", "file2.py"])
     def test_main_multiple_files_success(
         self,
         mock_parser: Mock,
@@ -1046,7 +1046,7 @@ class TestMainCliFile:
         mock_process_multiple: Mock,
     ) -> None:
         """Test main() with multiple files processing"""
-        from cli_file import main
+        from ollama_analyze import main
 
         # Setup mocks
         mock_args = Mock()
@@ -1071,11 +1071,11 @@ class TestMainCliFile:
             mock_args, ["file1.py", "file2.py"]
         )
 
-    @patch("cli_file._validate_files")
-    @patch("cli_file._expand_file_patterns")
-    @patch("cli_file._configure_logging")
-    @patch("cli_file._create_argument_parser")
-    @patch("sys.argv", ["cli_file.py", "nonexistent.py"])
+    @patch("ollama_analyze._validate_files")
+    @patch("ollama_analyze._expand_file_patterns")
+    @patch("ollama_analyze._configure_logging")
+    @patch("ollama_analyze._create_argument_parser")
+    @patch("sys.argv", ["ollama_analyze.py", "nonexistent.py"])
     def test_main_no_valid_files(
         self,
         mock_parser: Mock,
@@ -1084,7 +1084,7 @@ class TestMainCliFile:
         mock_validate: Mock,
     ) -> None:
         """Test main() when no valid files are found"""
-        from cli_file import main
+        from ollama_analyze import main
 
         # Setup mocks
         mock_args = Mock()
@@ -1105,12 +1105,12 @@ class TestMainCliFile:
         mock_expand.assert_called_once_with(["nonexistent.py"])
         mock_validate.assert_called_once_with(["nonexistent.py"])
 
-    @patch("cli_file._process_single_file")
-    @patch("cli_file._validate_files")
-    @patch("cli_file._expand_file_patterns")
-    @patch("cli_file._configure_logging")
-    @patch("cli_file._create_argument_parser")
-    @patch("sys.argv", ["cli_file.py", "*.py", "--verbose"])
+    @patch("ollama_analyze._process_single_file")
+    @patch("ollama_analyze._validate_files")
+    @patch("ollama_analyze._expand_file_patterns")
+    @patch("ollama_analyze._configure_logging")
+    @patch("ollama_analyze._create_argument_parser")
+    @patch("sys.argv", ["ollama_analyze.py", "*.py", "--verbose"])
     def test_main_with_glob_patterns(
         self,
         mock_parser: Mock,
@@ -1120,7 +1120,7 @@ class TestMainCliFile:
         mock_process_single: Mock,
     ) -> None:
         """Test main() with glob patterns"""
-        from cli_file import main
+        from ollama_analyze import main
 
         # Setup mocks
         mock_args = Mock()
@@ -1141,12 +1141,12 @@ class TestMainCliFile:
         mock_validate.assert_called_once_with(["file1.py", "file2.py", "file3.py"])
         mock_process_single.assert_called_once_with(mock_args, "file1.py")
 
-    @patch("cli_file._process_multiple_files")
-    @patch("cli_file._validate_files")
-    @patch("cli_file._expand_file_patterns")
-    @patch("cli_file._configure_logging")
-    @patch("cli_file._create_argument_parser")
-    @patch("sys.argv", ["cli_file.py", "src/*.py", "--concurrent", "8"])
+    @patch("ollama_analyze._process_multiple_files")
+    @patch("ollama_analyze._validate_files")
+    @patch("ollama_analyze._expand_file_patterns")
+    @patch("ollama_analyze._configure_logging")
+    @patch("ollama_analyze._create_argument_parser")
+    @patch("sys.argv", ["ollama_analyze.py", "src/*.py", "--concurrent", "8"])
     def test_main_integration_workflow(
         self,
         mock_parser: Mock,
@@ -1156,7 +1156,7 @@ class TestMainCliFile:
         mock_process_multiple: Mock,
     ) -> None:
         """Test main() complete integration workflow"""
-        from cli_file import main
+        from ollama_analyze import main
 
         # Setup realistic mocks
         mock_args = Mock()
