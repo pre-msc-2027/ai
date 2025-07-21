@@ -233,11 +233,11 @@ class FileToolsManager:
 ## Proposed Architecture
 
 ```
-cli_workspace.py
+ollama_workspace.py
 ├── WorkspaceManager          # Secure workspace management
 ├── FileTools                 # Set of file tools
 ├── ConversationManager       # Tool conversation management
 └── CLI Interface            # Command line interface
 ```
 
-This guide will serve as the foundation for implementing the `cli_workspace.py` module with Ollama tools for file management.
+This guide will serve as the foundation for implementing the `ollama_workspace.py` module with Ollama tools for file management.
