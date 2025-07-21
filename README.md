@@ -17,13 +17,13 @@ poetry install
 
 ## 🛠️ Tools
 
-### cli.py - Simple Ollama Chat
+### ollama_chat.py - Simple Ollama Chat
 
 Interactive tool for sending prompts to Ollama models.
 
 **Usage:**
 ```bash
-python cli.py "Your prompt here" [options]
+python ollama_chat.py "Your prompt here" [options]
 ```
 
 **Arguments:**
@@ -38,25 +38,25 @@ python cli.py "Your prompt here" [options]
 **Examples:**
 ```bash
 # Basic usage
-poetry run python cli.py "What is Python?"
+poetry run python ollama_chat.py "What is Python?"
 
 # Different model and host
-poetry run python cli.py "Explain Docker" -m llama3:8b --host http://localhost:11434
+poetry run python ollama_chat.py "Explain Docker" -m llama3:8b --host http://localhost:11434
 
 # Streaming mode
-poetry run python cli.py "Write a function to sort a list" --stream
+poetry run python ollama_chat.py "Write a function to sort a list" --stream
 
 # Verbose mode (shows debug logs)
-poetry run python cli.py "Debug this code" --verbose
+poetry run python ollama_chat.py "Debug this code" --verbose
 ```
 
-### cli_file.py - Code File Analysis
+### ollama_analyze.py - Code File Analysis
 
 Tool for analyzing code files and generating improvement recommendations.
 
 **Usage:**
 ```bash
-python cli_file.py file1 [file2 ...] [options]
+python ollama_analyze.py file1 [file2 ...] [options]
 ```
 
 **Arguments:**
@@ -74,31 +74,31 @@ python cli_file.py file1 [file2 ...] [options]
 **Examples:**
 ```bash
 # Analyze single file
-poetry run python cli_file.py main.py
+poetry run python ollama_analyze.py main.py
 
 # Analyze multiple files (automatically uses async mode)
-poetry run python cli_file.py src/*.py
+poetry run python ollama_analyze.py src/*.py
 
 # Save to markdown
-poetry run python cli_file.py main.py -o
+poetry run python ollama_analyze.py main.py -o
 
 # Save to specific directory
-poetry run python cli_file.py src/*.py -o --output-dir reports
+poetry run python ollama_analyze.py src/*.py -o --output-dir reports
 
 # Custom model and concurrent processing
-poetry run python cli_file.py *.py -m llama3:8b --concurrent 5
+poetry run python ollama_analyze.py *.py -m llama3:8b --concurrent 5
 
 # Verbose output with streaming
-poetry run python cli_file.py app.py -v --stream
+poetry run python ollama_analyze.py app.py -v --stream
 ```
 
-### cli_workspace.py - Workspace File Management
+### ollama_workspace.py - Workspace File Management
 
 Interactive tool for AI-assisted file management within a secure workspace using Ollama's function calling capabilities.
 
 **Usage:**
 ```bash
-python cli_workspace.py workspace prompt [options]
+python ollama_workspace.py workspace prompt [options]
 ```
 
 **Arguments:**
@@ -114,16 +114,16 @@ python cli_workspace.py workspace prompt [options]
 **Examples:**
 ```bash
 # Create a new README file
-poetry run python cli_workspace.py /path/to/repo "Create a README.md with project overview"
+poetry run python ollama_workspace.py /path/to/repo "Create a README.md with project overview"
 
 # List and analyze Python files
-poetry run python cli_workspace.py . "Show me all Python files and their purpose"
+poetry run python ollama_workspace.py . "Show me all Python files and their purpose"
 
 # Refactor code
-poetry run python cli_workspace.py ./src "Help me refactor the authentication module"
+poetry run python ollama_workspace.py ./src "Help me refactor the authentication module"
 
 # Interactive file management
-poetry run python cli_workspace.py /workspace "I need to reorganize the project structure"
+poetry run python ollama_workspace.py /workspace "I need to reorganize the project structure"
 ```
 
 **Available Tools:**
@@ -148,14 +148,14 @@ poetry run python cli_workspace.py /workspace "I need to reorganize the project 
 
 ## 📄 Output
 
-### cli.py
+### ollama_chat.py
 Outputs the AI response directly to the console.
 
-### cli_file.py
+### ollama_analyze.py
 - **Console**: Displays analysis results with code issues and recommendations
 - **Markdown files** (with `-o`): Saves detailed reports with format `filename_analysis_YYYY_MM_DD-HH_MM_SS.md`
 
-### cli_workspace.py
+### ollama_workspace.py
 - **Interactive mode**: Real-time conversation with AI for file operations
 - **Tool feedback**: Shows each tool call and its result
 - **Operation logs**: Detailed logging of all file operations
@@ -219,8 +219,9 @@ poetry run pytest -v
 
 - `tests/` - Test directory
 - `tests/conftest.py` - Common fixtures and test utilities
-- `tests/test_cli.py` - Tests for cli.py functionality
-- `tests/test_cli_file.py` - Tests for cli_file.py functionality
+- `tests/test_ollama_chat.py` - Tests for ollama_chat.py functionality
+- `tests/test_ollama_analyze.py` - Tests for ollama_analyze.py functionality
+- `tests/test_ollama_workspace.py` - Tests for ollama_workspace.py functionality
 
 ### Coverage Reports
 

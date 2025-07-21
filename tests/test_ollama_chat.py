@@ -12,13 +12,13 @@ import pytest
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cli import send_prompt  # noqa: E402
+from ollama_chat import send_prompt  # noqa: E402
 
 
 class TestSendPrompt:
     """Test prompt sending functionality"""
 
-    @patch("cli.Client")
+    @patch("ollama_chat.Client")
     def test_send_prompt_non_streaming(self, mock_client_class: Mock) -> None:
         """Test prompt without streaming"""
         # Setup mock
@@ -47,7 +47,7 @@ class TestSendPrompt:
         assert len(call_args[1]["messages"]) == 2
         assert call_args[1]["messages"][1]["content"] == "Test prompt"
 
-    @patch("cli.Client")
+    @patch("ollama_chat.Client")
     def test_send_prompt_streaming(
         self, mock_client_class: Mock, mock_streaming_response: Mock
     ) -> None:
@@ -73,7 +73,7 @@ class TestSendPrompt:
         call_args = mock_client.chat.call_args
         assert call_args[1]["stream"] is True
 
-    @patch("cli.Client")
+    @patch("ollama_chat.Client")
     def test_send_prompt_connection_error(self, mock_client_class: Mock) -> None:
         """Test prompt with connection error"""
         # Setup mock to raise exception
@@ -92,7 +92,7 @@ class TestSendPrompt:
         except Exception:
             pytest.fail("send_prompt should handle exceptions gracefully")
 
-    @patch("cli.Client")
+    @patch("ollama_chat.Client")
     def test_send_prompt_invalid_response(self, mock_client_class: Mock) -> None:
         """Test prompt with invalid response format"""
         # Setup mock with invalid response
@@ -164,11 +164,11 @@ class TestArgumentParsing:
 class TestMainFunction:
     """Test the main() function and CLI integration"""
 
-    @patch("cli.send_prompt")
-    @patch("sys.argv", ["cli.py", "Test prompt"])
+    @patch("ollama_chat.send_prompt")
+    @patch("sys.argv", ["ollama_chat.py", "Test prompt"])
     def test_main_basic_usage(self, mock_send_prompt: Mock) -> None:
         """Test main function with basic arguments"""
-        from cli import main
+        from ollama_chat import main
 
         main()
 
@@ -180,7 +180,7 @@ class TestMainFunction:
             False,  # default stream=False
         )
 
-    @patch("cli.send_prompt")
+    @patch("ollama_chat.send_prompt")
     @patch(
         "sys.argv",
         [
@@ -194,12 +194,12 @@ class TestMainFunction:
             "--verbose",
         ],
     )
-    @patch("cli.logging.basicConfig")
+    @patch("ollama_chat.logging.basicConfig")
     def test_main_with_all_options(
         self, mock_logging: Mock, mock_send_prompt: Mock
     ) -> None:
         """Test main function with all options"""
-        from cli import main
+        from ollama_chat import main
 
         main()
 
@@ -216,14 +216,14 @@ class TestMainFunction:
         call_args = mock_logging.call_args[1]
         assert call_args["level"] == 10  # logging.DEBUG
 
-    @patch("cli.send_prompt")
-    @patch("sys.argv", ["cli.py", "Test prompt", "--verbose"])
-    @patch("cli.logging.basicConfig")
+    @patch("ollama_chat.send_prompt")
+    @patch("sys.argv", ["ollama_chat.py", "Test prompt", "--verbose"])
+    @patch("ollama_chat.logging.basicConfig")
     def test_main_verbose_logging(
         self, mock_logging: Mock, mock_send_prompt: Mock
     ) -> None:
         """Test main function configures verbose logging"""
-        from cli import main
+        from ollama_chat import main
 
         main()
 
@@ -234,14 +234,14 @@ class TestMainFunction:
         assert "[%(asctime)s]" in call_args["format"]
         assert "%Y-%m-%d %H:%M:%S" == call_args["datefmt"]
 
-    @patch("cli.send_prompt")
-    @patch("sys.argv", ["cli.py", "Test prompt"])
-    @patch("cli.logging.basicConfig")
+    @patch("ollama_chat.send_prompt")
+    @patch("sys.argv", ["ollama_chat.py", "Test prompt"])
+    @patch("ollama_chat.logging.basicConfig")
     def test_main_quiet_logging(
         self, mock_logging: Mock, mock_send_prompt: Mock
     ) -> None:
         """Test main function configures quiet logging by default"""
-        from cli import main
+        from ollama_chat import main
 
         main()
 
@@ -263,7 +263,7 @@ class TestIntegration:
         ]
 
         for host in test_hosts:
-            with patch("cli.Client") as mock_client_class:
+            with patch("ollama_chat.Client") as mock_client_class:
                 mock_client = Mock()
                 mock_client.chat.return_value = {"message": {"content": "test"}}
                 mock_client_class.return_value = mock_client
@@ -276,7 +276,7 @@ class TestIntegration:
         test_models = ["mistral:latest", "llama3:8b", "codellama:13b"]
 
         for model in test_models:
-            with patch("cli.Client") as mock_client_class:
+            with patch("ollama_chat.Client") as mock_client_class:
                 mock_client = Mock()
                 mock_client.chat.return_value = {"message": {"content": "test"}}
                 mock_client_class.return_value = mock_client

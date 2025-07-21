@@ -15,7 +15,7 @@ import pytest
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cli_workspace import FileTools, WorkspaceChat, WorkspaceManager  # noqa: E402
+from ollama_workspace import FileTools, WorkspaceChat, WorkspaceManager  # noqa: E402
 
 
 class TestWorkspaceManager:
@@ -279,7 +279,7 @@ class TestWorkspaceChat:
         assert "write_file" in prompt
         assert "list_files" in prompt
 
-    @patch("cli_workspace.Client")
+    @patch("ollama_workspace.Client")
     def test_chat_interactive_tool_call(
         self, mock_client_class: Mock, temp_dir: str
     ) -> None:
@@ -322,7 +322,7 @@ class TestWorkspaceChat:
         assert call_args[1]["model"] == "llama3.1"
         assert len(call_args[1]["tools"]) == 8
 
-    @patch("cli_workspace.Client")
+    @patch("ollama_workspace.Client")
     def test_chat_interactive_error_handling(
         self, mock_client_class: Mock, temp_dir: str
     ) -> None:
@@ -364,30 +364,30 @@ class TestCLIIntegration:
 
     def test_main_nonexistent_workspace(self) -> None:
         """Test main with non-existent workspace"""
-        from cli_workspace import main
+        from ollama_workspace import main
 
-        with patch("sys.argv", ["cli_workspace.py", "/nonexistent", "test"]):
+        with patch("sys.argv", ["ollama_workspace.py", "/nonexistent", "test"]):
             result = main()
             assert result == 1
 
     def test_main_file_as_workspace(self, temp_file: str) -> None:
         """Test main with file instead of directory"""
-        from cli_workspace import main
+        from ollama_workspace import main
 
-        with patch("sys.argv", ["cli_workspace.py", temp_file, "test"]):
+        with patch("sys.argv", ["ollama_workspace.py", temp_file, "test"]):
             result = main()
             assert result == 1
 
-    @patch("cli_workspace.WorkspaceChat")
+    @patch("ollama_workspace.WorkspaceChat")
     def test_main_success(self, mock_chat_class: Mock, temp_dir: str) -> None:
         """Test successful main execution"""
-        from cli_workspace import main
+        from ollama_workspace import main
 
         # Setup mock
         mock_chat = Mock()
         mock_chat_class.return_value = mock_chat
 
-        with patch("sys.argv", ["cli_workspace.py", temp_dir, "List files"]):
+        with patch("sys.argv", ["ollama_workspace.py", temp_dir, "List files"]):
             result = main()
             assert result == 0
 

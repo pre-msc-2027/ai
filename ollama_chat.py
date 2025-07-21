@@ -42,12 +42,12 @@ def send_prompt(host: str, model: str, prompt: str, is_streaming: bool) -> int:
                 model=model, messages=messages, stream=True
             )
             for chunk in streaming_response:
-                print(chunk["message"]["content"], end="", flush=True)
+                print(chunk.message.content, end="", flush=True)
         else:
             response = client.chat(model=model, messages=messages, stream=False)
             # Extract and display response
-            if "message" in response and "content" in response["message"]:
-                print(response["message"]["content"])
+            if hasattr(response, "message") and hasattr(response.message, "content"):
+                print(response.message.content)
             else:
                 logger.error("Invalid response format from Ollama")
                 return 1
