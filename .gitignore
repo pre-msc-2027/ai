@@ -1,18 +1,39 @@
-.venv
-.idea
+# Virtual environments
+.venv/
+venv/
+env/
 
-test
+# IDE
+.idea/
+.vscode/
 
-analyses
-*_analysis_*.md
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 
 # Testing
 htmlcov/
 .coverage
+.coverage.*
 .pytest_cache/
-__pycache__/
+.tox/
+.mypy_cache/
+.ruff_cache/
 
-# Test workspaces directory
-test_workspaces/
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
 
-test_issues/
+# Temporary files
+*.tmp
+*.log
+.DS_Store
+
+.env
+
+# Test
+folder
