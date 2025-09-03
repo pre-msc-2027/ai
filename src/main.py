@@ -91,8 +91,8 @@ def parse_arguments():
     )
     parser.add_argument(
         "--host",
-        default=os.getenv("OLLAMA_HOST", "http://10.0.0.1:11434"),
-        help="URL du serveur Ollama (défaut: 10.0.0.1:11434)",
+        default=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
+        help="URL du serveur Ollama (défaut: localhost:11434)",
     )
     parser.add_argument(
         "--model",

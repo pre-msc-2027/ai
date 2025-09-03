@@ -1,11 +1,21 @@
 # 🤖 SecuScan AI
 
-Simple command-line tools to generate analysis reports using Ollama models.
+AI-powered code analysis and fix generation tool that integrates with SonarQube-style static analysis APIs. Analyzes code warnings and provides intelligent fixes using Ollama models.
+
+## 🎯 Overview
+
+SecuScan AI is a command-line tool that:
+- Fetches code analysis data from external APIs
+- Processes warnings and rule violations using AI
+- Generates precise code fixes in JSON format
+- Supports multiple programming languages and rule sets
+- Integrates seamlessly with existing CI/CD workflows
 
 ## 📋 Prerequisites
 
-- Python 3.8+
+- Python 3.11+
 - Ollama installed and running
+- Access to a code analysis API (or use the provided test server)
 
 ## ⚡ Installation
 
@@ -15,187 +25,177 @@ cd ai
 poetry install
 ```
 
-## 🛠️ Tools
+## 🛠️ Usage
 
-### ollama_chat.py - Simple Ollama Chat
+### Basic Command
 
-Interactive tool for sending prompts to Ollama models.
-
-**Usage:**
 ```bash
-python ollama_chat.py "Your prompt here" [options]
+python -m src.main --scan-id <scan_identifier>
 ```
 
-**Arguments:**
-- `prompt` - Text prompt to send to the AI (required)
+### Arguments
 
-**Options:**
-- `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
-- `-m, --model MODEL` - Model to use (default: mistral:latest)
-- `--stream` - Enable streaming output
-- `-v, --verbose` - Enable verbose output (debug logs)
+- `--scan-id` - **Required**: Identifier for the scan/analysis to process
 
-**Examples:**
+### Options
+
+- `--host URL` - Ollama server URL (default: `http://localhost:11434`)
+- `--model MODEL` - AI model to use (default: `llama3.1:latest`)
+- `--stream` - Enable streaming output (shows AI processing in real-time)
+- `--verbose` - Enable detailed logging and debug information
+
+### Examples
+
 ```bash
 # Basic usage
-poetry run python ollama_chat.py "What is Python?"
+python -m src.main --scan-id my-project-scan-001
 
-# Different model and host
-poetry run python ollama_chat.py "Explain Docker" -m llama3:8b --host http://localhost:11434
+# Custom Ollama server and model
+python -m src.main --scan-id scan-123 --host http://192.168.0.1:11434 --model llama3.1:8b
 
-# Streaming mode
-poetry run python ollama_chat.py "Write a function to sort a list" --stream
+# Streaming mode with verbose output
+python -m src.main --scan-id scan-456 --stream --verbose
 
-# Verbose mode (shows debug logs)
-poetry run python ollama_chat.py "Debug this code" --verbose
+# Production usage
+OLLAMA_HOST=http://production-ollama:11434 python -m src.main --scan-id prod-scan-789
 ```
 
-### ollama_analyze.py - Code File Analysis
+## 📊 API Integration
 
-Tool for analyzing code files and generating improvement recommendations.
+### Expected API Response Format
 
-**Usage:**
+The tool expects the analysis API to return data in this format:
+
+```json
+{
+  "analysis": {
+    "repo_url": "https://github.com/org/repo",
+    "warnings": [
+      {
+        "id": 0,
+        "rule_id": 1,
+        "file": "src/main.py",
+        "line": 42
+      }
+    ]
+  },
+  "rules": [
+    {
+      "rule_id": 1,
+      "name": "Unused Import",
+      "description": "Remove unused imports to clean up code",
+      "language": "python",
+      "parameters": {}
+    }
+  ]
+}
+```
+
+### Test API Server
+
+For development and testing, use the included test server:
+
 ```bash
-python ollama_analyze.py file1 [file2 ...] [options]
+# Start test API server
+python scripts/test_api_server.py
+
+# Server runs on http://localhost:8000
+# Test with: python -m src.main --scan-id test-scan
 ```
 
-**Arguments:**
-- `file` - Path(s) to file(s) to analyze (supports glob patterns like `src/*.py`)
+### API Configuration
 
-**Options:**
-- `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
-- `-m, --model MODEL` - Model to use (default: mistral:latest)
-- `--stream` - Enable streaming output
-- `-v, --verbose` - Enable verbose output
-- `-o, --output` - Save analysis to markdown files
-- `--output-dir DIR` - Directory to save markdown files (created if not exists)
-- `--concurrent N` - Max concurrent requests for multiple files (default: 4)
+Set the API endpoint via environment variables:
 
-**Examples:**
 ```bash
-# Analyze single file
-poetry run python ollama_analyze.py main.py
-
-# Analyze multiple files (automatically uses async mode)
-poetry run python ollama_analyze.py src/*.py
-
-# Save to markdown
-poetry run python ollama_analyze.py main.py -o
-
-# Save to specific directory
-poetry run python ollama_analyze.py src/*.py -o --output-dir reports
-
-# Custom model and concurrent processing
-poetry run python ollama_analyze.py *.py -m llama3:8b --concurrent 5
-
-# Verbose output with streaming
-poetry run python ollama_analyze.py app.py -v --stream
+export API_BASE_URL="https://your-analysis-api.com/api"
 ```
 
-### ollama_workspace.py - Workspace File Management
+## 🏗️ Architecture
 
-Interactive tool for AI-assisted file management within a secure workspace using Ollama's function calling capabilities.
+### Project Structure
 
-**Usage:**
-```bash
-python ollama_workspace.py workspace prompt [options]
+```
+src/
+├── api/           # API client for fetching analysis data
+│   ├── __init__.py
+│   └── issues.py  # Main API integration
+├── ollama/        # Ollama client abstraction
+│   ├── __init__.py
+│   └── client.py  # AI model communication
+├── utils/         # Utility functions
+│   ├── __init__.py
+│   └── code_reader.py  # Code extraction and parsing
+├── main.py        # Main CLI entry point
+└── prompt_builder.py   # AI prompt generation
+
+scripts/
+└── test_api_server.py  # Development API server
+
+tests/
+└── unit/          # Unit tests
 ```
 
-**Arguments:**
-- `workspace` - Path to the workspace directory (repository root)
-- `prompt` - Initial prompt/request for the AI
+### Data Flow
 
-**Options:**
-- `--host URL` - Ollama server URL (default: http://10.0.0.1:11434)
-- `-m, --model MODEL` - Model to use (default: llama3.1:latest)
-- `--max-iterations N` - Max conversation rounds (default: 10)
-- `-v, --verbose` - Enable verbose output
+1. **API Layer** (`src/api/`) fetches analysis data from external API
+2. **Code Reader** (`src/utils/`) extracts relevant code snippets from files
+3. **Prompt Builder** constructs AI prompts with context and rules
+4. **Ollama Client** (`src/ollama/`) sends prompts to AI and processes responses
+5. **Main CLI** orchestrates the process and outputs structured JSON results
 
-**Examples:**
-```bash
-# Create a new README file
-poetry run python ollama_workspace.py /path/to/repo "Create a README.md with project overview"
+### Output Format
 
-# List and analyze Python files
-poetry run python ollama_workspace.py . "Show me all Python files and their purpose"
+The tool outputs JSON with original and fixed code:
 
-# Refactor code
-poetry run python ollama_workspace.py ./src "Help me refactor the authentication module"
-
-# Interactive file management
-poetry run python ollama_workspace.py /workspace "I need to reorganize the project structure"
+```json
+[
+  {
+    "warning_id": 0,
+    "original": "import unused_module",
+    "fixed": ""
+  },
+  {
+    "warning_id": 1,
+    "original": "print(debug_info)",
+    "fixed": "logger.debug(debug_info)"
+  }
+]
 ```
-
-**Available Tools:**
-- `read_file(file_path)` - Read file content
-- `write_file(file_path, content)` - Create/update files
-- `list_files(directory, pattern)` - List files with patterns
-- `create_directory(dir_path)` - Create directories
-- `delete_file(file_path)` - Delete files/directories
-- `append_to_file(file_path, content)` - Append content
-- `find_files(name_pattern, content_pattern)` - Search files
-- `get_workspace_info()` - Get workspace statistics
-
-**Security Features:**
-- All operations confined to specified workspace
-- Path validation prevents directory traversal
-- Detailed operation logging
-- Safe error handling
-
-**Requirements:**
-- Ollama 0.4+ with a model supporting function calling (e.g., Llama 3.1)
-```
-
-## 📄 Output
-
-### ollama_chat.py
-Outputs the AI response directly to the console.
-
-### ollama_analyze.py
-- **Console**: Displays analysis results with code issues and recommendations
-- **Markdown files** (with `-o`): Saves detailed reports with format `filename_analysis_YYYY_MM_DD-HH_MM_SS.md`
-
-### ollama_workspace.py
-- **Interactive mode**: Real-time conversation with AI for file operations
-- **Tool feedback**: Shows each tool call and its result
-- **Operation logs**: Detailed logging of all file operations
 
 ## ⚙️ Configuration
 
-All tools support:
-- Custom Ollama server URLs via `--host`
-- Different AI models via `--model`
-- Streaming vs. batch responses
+### Environment Variables
 
-## 🔧 Troubleshooting
+Create a `.env` file in the project root:
 
-**Connection issues:**
-- Ensure Ollama is running: `ollama serve`
-- Check the correct host/port with `--host`
+```env
+# Ollama Configuration
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=llama3.1:latest
 
-**Model not found:**
-- List available models: `ollama list`
-- Pull a model: `ollama pull mistral:latest`
+# API Configuration
+API_BASE_URL=https://your-analysis-api.com/api
 
-**File analysis issues:**
-- Ensure files exist and are readable
-- Check file extensions are supported (.py, .js, .ts, .java, etc.)
+# Logging
+LOG_LEVEL=INFO
+```
 
-**Workspace management issues:**
-- Ensure workspace directory exists and is accessible
-- Check Ollama model supports function calling (e.g., Llama 3.1)
-- Verify file permissions for read/write operations
+### Supported Models
 
-## 🧪 Development & Testing
+- **Llama 3.1** (recommended) - Best performance for code analysis
+- **Mistral** - Good alternative with faster processing
+- **CodeLlama** - Specialized for code understanding
+
+## 💻 Development
 
 ### Setup Development Environment
 
 ```bash
-# Quick setup with script
-./setup.sh
-
-# Or manually:
+# Install with development dependencies
 poetry install --with dev
+
+# Install pre-commit hooks
 poetry run pre-commit install
 ```
 
@@ -205,38 +205,126 @@ poetry run pre-commit install
 # Run all tests
 poetry run pytest
 
-# Run tests with coverage
-poetry run pytest --cov
+# Run with coverage
+poetry run pytest --cov=src --cov-report=html
 
-# Run specific test file
-poetry run pytest tests/test_cli.py
+# Run specific test module
+poetry run pytest tests/unit/test_utils_code_reader.py
 
-# Run tests in verbose mode
+# Verbose output
 poetry run pytest -v
+```
+
+### Code Quality
+
+The project uses several tools to maintain code quality:
+
+- **Black**: Code formatting (88 character limit)
+- **isort**: Import sorting
+- **Flake8**: Linting and style checking
+- **MyPy**: Static type checking
+- **Pre-commit**: Automated checks on commit
+
+Run all quality checks:
+
+```bash
+poetry run pre-commit run --all-files
 ```
 
 ### Test Structure
 
-- `tests/` - Test directory
-- `tests/conftest.py` - Common fixtures and test utilities
-- `tests/test_ollama_chat.py` - Tests for ollama_chat.py functionality
-- `tests/test_ollama_analyze.py` - Tests for ollama_analyze.py functionality
-- `tests/test_ollama_workspace.py` - Tests for ollama_workspace.py functionality
+- `tests/unit/` - Unit tests for individual modules
+- `tests/unit/test_utils_code_reader.py` - Tests for code extraction utilities
+- More test modules to be added for each component
 
-### Coverage Reports
+## 🔧 Troubleshooting
 
-HTML coverage reports are generated in `htmlcov/` directory after running tests with `--cov` flag.
+### Connection Issues
 
-### Code Quality
-
-Pre-commit hooks run automatically on every commit to ensure code quality:
-- **Black**: Code formatting (88 char line length)
-- **isort**: Import sorting
-- **Flake8**: Linting
-- **Mypy**: Type checking
-- File cleanup (trailing whitespace, EOF, etc.)
-
-To run all checks manually:
-```bash
-poetry run pre-commit run --all-files
+**Problem**: Cannot connect to Ollama server
 ```
+❌ Error: Connection refused to http://localhost:11434
+```
+
+**Solutions**:
+- Ensure Ollama is running: `ollama serve`
+- Check the correct host with `--host` parameter
+- Verify firewall settings
+
+### Model Issues
+
+**Problem**: Model not found error
+```
+❌ Model 'llama3.1:latest' not found
+```
+
+**Solutions**:
+- List available models: `ollama list`
+- Pull the required model: `ollama pull llama3.1:latest`
+- Use an alternative model with `--model`
+
+### API Issues
+
+**Problem**: API endpoint not responding
+```
+❌ Failed to fetch analysis data for scan ID
+```
+
+**Solutions**:
+- Verify API endpoint is accessible
+- Check scan ID format and existence
+- Use test server for development: `python scripts/test_api_server.py`
+
+### Code Analysis Issues
+
+**Problem**: No fixes generated for warnings
+```
+⚠️ Warning: No valid fixes generated
+```
+
+**Solutions**:
+- Ensure code files exist and are readable
+- Check if warnings point to valid file paths
+- Verify AI model supports the programming language
+- Try with `--verbose` for detailed processing logs
+
+### Performance Issues
+
+**Problem**: Slow processing with many warnings
+
+**Solutions**:
+- Use a faster model (e.g., smaller Llama variant)
+- Enable streaming with `--stream` for real-time feedback
+- Process scans in smaller batches
+- Ensure adequate system resources for AI model
+
+## 📈 Integration Examples
+
+### CI/CD Pipeline
+
+```yaml
+# GitHub Actions example
+- name: AI Code Analysis
+  run: |
+    python -m src.main --scan-id ${{ github.run_id }} > fixes.json
+    # Process fixes.json for automated PRs or reports
+```
+
+### Custom API Integration
+
+```python
+# Custom wrapper example
+import subprocess
+import json
+
+def analyze_with_ai(scan_id, model="llama3.1:latest"):
+    cmd = ["python", "-m", "src.main", "--scan-id", scan_id, "--model", model]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return json.loads(result.stdout)
+```
+
+---
+
+## 📄 License
+
+MIT
