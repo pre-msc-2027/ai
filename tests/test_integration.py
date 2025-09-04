@@ -194,7 +194,7 @@ class TestAPIToOllamaIntegration:
 
         assert len(warnings) == 1
         assert len(rules) == 1
-        assert workspace == "repo"
+        assert workspace == "folder/repo"
 
         # Build prompt with API data
         prompt = build_prompt(

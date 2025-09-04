@@ -92,7 +92,7 @@ class TestGetAnalysisData:
         # Assertions
         assert warnings == mock_api_response["analysis"]["warnings"]
         assert rules == mock_api_response["rules"]
-        assert workspace == "repo"  # Extracted from repo_url
+        assert workspace == "folder/repo"  # Extracted from repo_url with folder prefix
 
         # Check API was called correctly
         mock_get.assert_called_once()
@@ -198,10 +198,10 @@ class TestGetAnalysisData:
         # Should handle missing fields gracefully
         assert warnings == []
         assert rules == []
-        assert workspace == "repo"
+        assert workspace == "folder/repo"
 
     @patch("requests.get")
-    @patch.dict(os.environ, {"API_BASE_URL": "http://custom-api:9000/api"})
+    @patch.dict(os.environ, {"API_URL": "http://custom-api:9000"})
     def test_get_analysis_data_custom_api_url(self, mock_get, mock_api_response):
         """Test using custom API URL from environment"""
         mock_resp = Mock()
@@ -213,7 +213,7 @@ class TestGetAnalysisData:
 
         # Check custom API URL was used
         call_url = mock_get.call_args[0][0]
-        assert "http://custom-api:9000/api" in call_url
+        assert "http://custom-api:9000" in call_url
 
     @patch("requests.get")
     def test_get_analysis_data_empty_warnings(self, mock_get):
@@ -230,7 +230,7 @@ class TestGetAnalysisData:
 
         assert warnings == []
         assert rules == []
-        assert workspace == "repo"
+        assert workspace == "folder/repo"
 
     @patch("requests.get")
     @patch("logging.error")
@@ -272,7 +272,7 @@ class TestIntegrationWithEnvironment:
     def test_full_flow_with_env_vars(self, mock_get, mock_api_response, monkeypatch):
         """Test complete flow with environment variables set"""
         # Set environment variables
-        monkeypatch.setenv("API_BASE_URL", "http://test-api:8080/api")
+        monkeypatch.setenv("API_URL", "http://test-api:8080")
 
         mock_resp = Mock()
         mock_resp.status_code = 200
@@ -284,7 +284,7 @@ class TestIntegrationWithEnvironment:
         # Verify all data extracted correctly
         assert len(warnings) == 3
         assert len(rules) == 2
-        assert workspace == "repo"
+        assert workspace == "folder/repo"
 
         # Verify correct API endpoint used
         call_url = mock_get.call_args[0][0]
