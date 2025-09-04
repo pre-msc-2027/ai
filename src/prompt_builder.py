@@ -14,6 +14,11 @@ def build_prompt(code_snippet, rule, file_path, line_number):
     if rule_parameters:
         parameters_text = f"\nParamètres de la règle : {rule_parameters}"
 
+    json_example = (
+        '{"original": "ligne de code originale problématique", '
+        '"fixed": "ligne de code corrigée"}'
+    )
+
     return f"""Tu es un expert en correction de code {rule_language}. \
 Analyse ce problème et fournis une correction.
 
@@ -34,8 +39,7 @@ Analyse ce problème et fournis une correction.
 3. Réponds UNIQUEMENT au format JSON suivant \
 (sans explication supplémentaire) :
 
-{{{"original": "ligne de code originale problématique", \
-"fixed": "ligne de code corrigée"}}}
+{json_example}
 
 La réponse doit être un JSON valide avec les champs "original" et \
 "fixed" contenant respectivement le code problématique et sa correction."""

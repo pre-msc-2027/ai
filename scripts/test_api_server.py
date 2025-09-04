@@ -7,7 +7,7 @@ import json
 from urllib.parse import urlparse
 
 
-class TestAPIHandler(BaseHTTPRequestHandler):
+class MockAPIHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
 
@@ -51,7 +51,7 @@ class TestAPIHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = HTTPServer(("localhost", 8000), TestAPIHandler)
+    server = HTTPServer(("localhost", 8000), MockAPIHandler)
     print("Serveur de test démarré sur http://localhost:8000")
     print("Utilisez Ctrl+C pour arrêter")
     try:

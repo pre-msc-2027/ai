@@ -9,18 +9,18 @@ def extract_code_snippet(
     Extrait un snippet de code autour d'une ligne donnée.
 
     Args:
-        filepath: Chemin relatif du fichier
+        filepath: Chemin vers le fichier (absolu ou relatif)
         line_number: Numéro de ligne (1-based)
         context: Nombre de lignes de contexte avant/après
-        workspace: Nom du workspace (dossier dans folder/)
+        workspace: Chemin du workspace pour les fichiers relatifs
 
     Returns:
         Snippet de code ou message d'erreur
     """
     try:
         # Construire le chemin complet
-        if workspace:
-            full_path = os.path.join("folder", workspace, filepath)
+        if workspace and not os.path.isabs(filepath):
+            full_path = os.path.join(workspace, filepath)
         else:
             full_path = filepath
 
@@ -29,9 +29,13 @@ def extract_code_snippet(
         with open(full_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
-        start = max(line_number - context - 1, 0)
-        end = min(line_number + context, len(lines))
-        snippet = "".join(lines[start:end])
+        # Handle negative line numbers by showing the whole file
+        if line_number < 1:
+            snippet = "".join(lines).rstrip("\n")
+        else:
+            start = max(line_number - context - 1, 0)
+            end = min(line_number + context, len(lines))
+            snippet = "".join(lines[start:end]).rstrip("\n")
         return snippet
 
     except FileNotFoundError:

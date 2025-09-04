@@ -49,7 +49,7 @@ def get_analysis_data(scan_id: str) -> Tuple[List[Any], List[Any], Optional[str]
     Returns:
         Tuple[warnings, rules, workspace]: Listes des warnings et rules, workspace
     """
-    api_base_url = os.getenv("API_URL", "http://localhost:8000")
+    api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
     api_url = f"{api_base_url}/api/scans/analyse_with_rules/{scan_id}"
 
     try:
@@ -62,8 +62,12 @@ def get_analysis_data(scan_id: str) -> Tuple[List[Any], List[Any], Optional[str]
         repo_url = analysis.get("repo_url")
         rules = data.get("rules", [])
 
-        # Extraire le nom du workspace depuis l'URL du repo
-        workspace = extract_repo_name_from_url(repo_url) if repo_url else None
+        # Prioriser workspace_path depuis l'API, sinon extraire depuis repo_url
+        workspace_path = analysis.get("workspace_path")
+        if workspace_path:
+            workspace = workspace_path
+        else:
+            workspace = extract_repo_name_from_url(repo_url) if repo_url else None
 
         logging.info(
             f"Récupéré {len(warnings)} warnings et {len(rules)} rules depuis l'API"
@@ -76,6 +80,12 @@ def get_analysis_data(scan_id: str) -> Tuple[List[Any], List[Any], Optional[str]
         return warnings, rules, workspace
 
     except requests.exceptions.RequestException as e:
+        logging.error(f"Erreur lors de la récupération de l'analyse : {e}")
+        return [], [], None
+    except ValueError as e:
+        logging.error(f"Erreur de parsing JSON : {e}")
+        return [], [], None
+    except Exception as e:
         logging.error(f"Erreur lors de la récupération de l'analyse : {e}")
         return [], [], None
 

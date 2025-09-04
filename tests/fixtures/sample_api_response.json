@@ -1,0 +1,98 @@
+{
+  "analysis": {
+    "repo_url": "https://github.com/test-org/test-repo",
+    "workspace_path": "/home/user/projects/test-repo",
+    "warnings": [
+      {
+        "id": 1,
+        "rule_id": 1,
+        "file": "src/main.py",
+        "line": 15,
+        "severity": "MINOR",
+        "message": "Remove this unused import"
+      },
+      {
+        "id": 2,
+        "rule_id": 2,
+        "file": "src/utils.py",
+        "line": 42,
+        "severity": "MAJOR",
+        "message": "Replace print with logger"
+      },
+      {
+        "id": 3,
+        "rule_id": 3,
+        "file": "src/config.py",
+        "line": 8,
+        "severity": "BLOCKER",
+        "message": "Remove hardcoded credential"
+      },
+      {
+        "id": 4,
+        "rule_id": 4,
+        "file": "src/handlers.js",
+        "line": 25,
+        "severity": "MINOR",
+        "message": "Replace console.log with proper logging"
+      },
+      {
+        "id": 5,
+        "rule_id": 5,
+        "file": "src/database.py",
+        "line": 120,
+        "severity": "INFO",
+        "message": "Line too long (145 > 120 characters)"
+      }
+    ]
+  },
+  "rules": [
+    {
+      "rule_id": 1,
+      "name": "Unused Import",
+      "Description": "Remove unused imports to clean up code",
+      "language": "python",
+      "tags": ["maintainability", "clean-code"],
+      "parameters": {}
+    },
+    {
+      "rule_id": 2,
+      "name": "Print Statement",
+      "description": "Replace print statements with proper logging",
+      "language": "python",
+      "tags": ["best-practice"],
+      "parameters": {
+        "logger": "logging"
+      }
+    },
+    {
+      "rule_id": 3,
+      "name": "Hardcoded Credentials",
+      "Description": "Remove hardcoded credentials from source code",
+      "language": "python",
+      "tags": ["security", "critical"],
+      "parameters": {
+        "severity": "high"
+      }
+    },
+    {
+      "rule_id": 4,
+      "name": "Console Log",
+      "description": "Replace console.log with structured logging",
+      "language": "javascript",
+      "tags": ["best-practice"],
+      "parameters": {
+        "logger": "winston"
+      }
+    },
+    {
+      "rule_id": 5,
+      "name": "Line Length",
+      "Description": "Limit line length for better readability",
+      "language": "python",
+      "tags": ["style", "readability"],
+      "parameters": {
+        "max_length": 120
+      }
+    }
+  ]
+}

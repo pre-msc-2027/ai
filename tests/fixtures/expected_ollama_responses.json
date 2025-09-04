@@ -1,0 +1,39 @@
+{
+  "responses": [
+    {
+      "prompt_contains": "Unused Import",
+      "response": "{\"original\": \"import unused_module\", \"fixed\": \"\"}"
+    },
+    {
+      "prompt_contains": "Print Statement",
+      "response": "{\"original\": \"print('Debug message')\", \"fixed\": \"logger.debug('Debug message')\"}"
+    },
+    {
+      "prompt_contains": "Hardcoded Credentials",
+      "response": "{\"original\": \"api_key = 'sk_live_1234567890'\", \"fixed\": \"api_key = os.environ.get('API_KEY')\"}"
+    },
+    {
+      "prompt_contains": "Console Log",
+      "response": "{\"original\": \"console.log('Processing:', data)\", \"fixed\": \"logger.info('Processing:', data)\"}"
+    },
+    {
+      "prompt_contains": "Line Length",
+      "response": "{\"original\": \"result = very_long_function_call_that_exceeds_the_maximum_line_length_of_120_characters_and_needs_to_be_split(param1, param2, param3)\", \"fixed\": \"result = very_long_function_call_that_exceeds_the_maximum_line_length_of_120_characters_and_needs_to_be_split(\\n    param1, param2, param3\\n)\"}"
+    },
+    {
+      "prompt_contains": "TODO comment",
+      "response": "{\"original\": \"# TODO: Implement this feature\", \"fixed\": \"# Implement data validation\\n    validate_data(data)\"}"
+    },
+    {
+      "prompt_contains": "Empty catch",
+      "response": "{\"original\": \"except:\\n    pass\", \"fixed\": \"except Exception as e:\\n    logger.error(f'Error processing data: {e}')\"}"
+    }
+  ],
+  "malformed_responses": [
+    "This is not JSON at all",
+    "{'original': 'bad', 'fixed': 'good'}",
+    "{\"original\": \"test\"}",
+    "Here's the fix: {\"original\": \"bad\", \"fixed\": \"good\"} Hope this helps!",
+    "{\"original\": \"test\", \"fixed\": "
+  ]
+}
