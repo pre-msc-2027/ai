@@ -6,15 +6,16 @@ from urllib.parse import urlparse
 import requests
 
 
-def extract_repo_name_from_url(repo_url: str) -> Optional[str]:
+def extract_repo_name_from_url(repo_url: Optional[str]) -> Optional[str]:
     """
     Extrait le nom du repository depuis une URL Git.
 
     Args:
         repo_url: URL du repository (ex: "https://github.com/client_org/repo_client")
+            ou None
 
     Returns:
-        Nom du repository (ex: "repo_client")
+        Nom du repository (ex: "repo_client") ou None si l'URL est invalide/vide
     """
     if not repo_url:
         return None

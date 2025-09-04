@@ -10,14 +10,18 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+# Constants for test files
+TEST_PYTHON_FILE = "test.py"
+TEST_JS_FILE = "main.js"
+
 
 @pytest.fixture
 def mock_warnings() -> List[Dict[str, Any]]:
     """Sample warnings data for testing"""
     return [
-        {"id": 0, "rule_id": 0, "file": "test.py", "line": 10},
-        {"id": 1, "rule_id": 1, "file": "main.js", "line": 25},
-        {"id": 2, "rule_id": 0, "file": "test.py", "line": 45},
+        {"id": 0, "rule_id": 0, "file": TEST_PYTHON_FILE, "line": 10},
+        {"id": 1, "rule_id": 1, "file": TEST_JS_FILE, "line": 25},
+        {"id": 2, "rule_id": 0, "file": TEST_PYTHON_FILE, "line": 45},
     ]
 
 
@@ -58,7 +62,7 @@ def mock_api_response(mock_warnings, mock_rules) -> Dict[str, Any]:
 def mock_workspace(tmp_path) -> str:
     """Create a temporary workspace with test files"""
     # Create Python test file
-    python_file = tmp_path / "test.py"
+    python_file = tmp_path / TEST_PYTHON_FILE
     python_file.write_text(
         """import os
 import sys
@@ -78,7 +82,7 @@ def another_function():
     )
 
     # Create JavaScript test file
-    js_file = tmp_path / "main.js"
+    js_file = tmp_path / TEST_JS_FILE
     js_file.write_text(
         """const express = require('express');
 const app = express();
@@ -168,11 +172,11 @@ def sample_code_snippet() -> str:
 @pytest.fixture
 def mock_prompt() -> str:
     """Sample prompt for testing"""
-    return """Tu es un expert en correction de code python. \
+    return f"""Tu es un expert en correction de code python. \
 Analyse ce problème et fournis une correction.
 
 **Problème identifié :**
-- Fichier : test.py
+- Fichier : {TEST_PYTHON_FILE}
 - Ligne : 10
 - Règle : Unused Import
 - Description : Remove unused imports

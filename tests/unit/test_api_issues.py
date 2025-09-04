@@ -110,7 +110,7 @@ class TestGetAnalysisData:
         mock_resp.json.return_value = mock_api_response
         mock_get.return_value = mock_resp
 
-        warnings, rules, workspace = get_analysis_data("test-scan-456")
+        _, _, workspace = get_analysis_data("test-scan-456")
 
         assert workspace == "/custom/workspace"
 
@@ -125,7 +125,7 @@ class TestGetAnalysisData:
         mock_resp.json.return_value = mock_api_response
         mock_get.return_value = mock_resp
 
-        warnings, rules, workspace = get_analysis_data("test-scan-789")
+        _, _, workspace = get_analysis_data("test-scan-789")
 
         assert workspace is None
 
@@ -238,7 +238,7 @@ class TestGetAnalysisData:
         """Test that errors are properly logged"""
         mock_get.side_effect = Exception("Unexpected error")
 
-        warnings, rules, workspace = get_analysis_data("test-scan")
+        get_analysis_data("test-scan")
 
         # Check error was logged
         mock_log.assert_called()
