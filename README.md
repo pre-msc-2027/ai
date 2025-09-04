@@ -40,9 +40,9 @@ python -m src.main --scan-id <scan_identifier>
 ### Options
 
 - `--host URL` - Ollama server URL (default: `http://localhost:11434`)
-- `--model MODEL` - AI model to use (default: `llama3.1:latest`)
-- `--stream` - Enable streaming output (shows AI processing in real-time)
-- `--verbose` - Enable detailed logging and debug information
+- `-m --model MODEL` - AI model to use (default: `llama3.1:latest`)
+- `-s --stream` - Enable streaming output (shows AI processing in real-time)
+- `-v --verbose` - Enable detailed logging and debug information
 
 ### Examples
 

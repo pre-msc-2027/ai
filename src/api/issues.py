@@ -49,7 +49,7 @@ def get_analysis_data(scan_id: str) -> Tuple[List[Any], List[Any], Optional[str]
     Returns:
         Tuple[warnings, rules, workspace]: Listes des warnings et rules, workspace
     """
-    api_base_url = os.getenv("API_BASE_URL", "http://localhost:8000")
+    api_base_url = os.getenv("API_URL", "http://localhost:8001")
     api_url = f"{api_base_url}/api/scans/analyse_with_rules/{scan_id}"
 
     try:
@@ -67,7 +67,8 @@ def get_analysis_data(scan_id: str) -> Tuple[List[Any], List[Any], Optional[str]
         if workspace_path:
             workspace = workspace_path
         else:
-            workspace = extract_repo_name_from_url(repo_url) if repo_url else None
+            repo_name = extract_repo_name_from_url(repo_url) if repo_url else None
+            workspace = f"folder/{repo_name}" if repo_name else None
 
         logging.info(
             f"Récupéré {len(warnings)} warnings et {len(rules)} rules depuis l'API"

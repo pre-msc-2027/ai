@@ -51,8 +51,8 @@ class MockAPIHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = HTTPServer(("localhost", 8000), MockAPIHandler)
-    print("Serveur de test démarré sur http://localhost:8000")
+    server = HTTPServer(("localhost", 8001), MockAPIHandler)
+    print("Serveur de test démarré sur http://localhost:8001")
     print("Utilisez Ctrl+C pour arrêter")
     try:
         server.serve_forever()

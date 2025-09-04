@@ -95,15 +95,18 @@ def parse_arguments():
         help="URL du serveur Ollama (défaut: localhost:11434)",
     )
     parser.add_argument(
+        "-m",
         "--model",
         default=os.getenv("OLLAMA_MODEL", "llama3.1:latest"),
         help="Modèle à utiliser (défaut: llama3.1:latest)",
     )
     parser.add_argument("--scan-id", required=True, help="Identifiant du scan")
     parser.add_argument(
-        "--stream", action="store_true", help="Afficher la réponse en streaming"
+        "-s", "--stream", action="store_true", help="Afficher la réponse en streaming"
     )
-    parser.add_argument("--verbose", action="store_true", help="Afficher plus de logs")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Afficher plus de logs"
+    )
     return parser.parse_args()
 
 
