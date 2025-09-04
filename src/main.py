@@ -11,24 +11,58 @@ from src.prompt_builder import build_prompt
 from src.utils.code_reader import extract_code_snippet
 
 
+def _find_json_start(response_text):
+    """Trouve le début d'un bloc JSON contenant 'original'"""
+    json_start = response_text.find('{"original"')
+    if json_start == -1:
+        json_start = response_text.find('{ "original"')
+    return json_start if json_start != -1 else None
+
+
+def _find_json_end(response_text, start_pos):
+    """Trouve la fin d'un bloc JSON en comptant les accolades"""
+    brace_count = 0
+    for i, char in enumerate(response_text[start_pos:], start_pos):
+        if char == "{":
+            brace_count += 1
+        elif char == "}":
+            brace_count -= 1
+            if brace_count == 0:
+                return i + 1
+    return None
+
+
+def _extract_json_text(response_text):
+    """Extrait le texte JSON d'une réponse contenant du texte supplémentaire"""
+    json_start = _find_json_start(response_text)
+    if json_start is None:
+        return None
+
+    json_end = _find_json_end(response_text, json_start)
+    if json_end is None:
+        return None
+
+    return response_text[json_start:json_end]
+
+
 def parse_json_response(response_text):
     """
     Extrait le JSON de la réponse de l'IA, même si elle contient du texte supplémentaire
     """
+    # Essayer de parser directement
     try:
-        # Essayer de parser directement
         return json.loads(response_text.strip())
     except json.JSONDecodeError:
-        # Chercher un JSON dans le texte
-        import re
+        pass
 
-        json_pattern = r'\{[^{}]*"original"[^{}]*"fixed"[^{}]*\}'
-        match = re.search(json_pattern, response_text)
-        if match:
-            try:
-                return json.loads(match.group())
-            except json.JSONDecodeError:
-                pass
+    # Chercher un JSON dans le texte - Recherche sûre sans regex vulnérable
+    json_text = _extract_json_text(response_text)
+    if json_text:
+        try:
+            return json.loads(json_text)
+        except json.JSONDecodeError:
+            pass
+
     return None
 
 
