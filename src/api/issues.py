@@ -83,7 +83,7 @@ def get_analysis_data(scan_id: str) -> Tuple[List[Any], List[Any], Optional[str]
             logging.debug(f"Using workspace from API: {workspace}")
         else:
             repo_name = extract_repo_name_from_url(repo_url) if repo_url else None
-            workspace = f"folder/{repo_name}" if repo_name else None
+            workspace = f"folders\\{repo_name}" if repo_name else None
             logging.debug(f"Extracted workspace from repo URL: {workspace}")
 
         logging.info(
