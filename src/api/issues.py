@@ -66,9 +66,9 @@ def get_analysis_data(scan_id: str) -> Tuple[List[Any], List[Any], Optional[str]
         data = response.json()
         logging.debug(f"Raw API data received: {data}")
 
+        repo_url = data.get("repo_url")
         analysis = data.get("analysis", {})
         warnings = analysis.get("warnings", [])
-        repo_url = analysis.get("repo_url")
         rules = data.get("rules", [])
 
         logging.debug("Parsed data:")

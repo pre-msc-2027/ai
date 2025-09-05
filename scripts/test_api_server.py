@@ -12,11 +12,11 @@ class MockAPIHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed_path = urlparse(self.path)
 
-        if parsed_path.path.startswith("/api/scans/analyse_with_rules/"):
+        if parsed_path.path.startswith("/scans/analyse_with_rules/"):
             # Données de test basées sur input.json
             test_data = {
+                "repo_url": "https://github.com/client_org/repo_client",
                 "analysis": {
-                    "repo_url": "https://github.com/client_org/repo_client",
                     "warnings": [
                         {"id": 0, "rule_id": 0, "file": "public/index.html", "line": 8},
                         {"id": 1, "rule_id": 0, "file": "public/index.html", "line": 9},
