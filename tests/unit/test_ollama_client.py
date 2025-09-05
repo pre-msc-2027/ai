@@ -31,6 +31,7 @@ class TestSendPromptToOllama:
         mock_client.chat.assert_called_once_with(
             model="llama3.1:latest",
             messages=[{"role": "user", "content": "Test prompt"}],
+            format="json",
         )
 
     @patch("ollama.Client")

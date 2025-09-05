@@ -8,7 +8,11 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from src.api.issues import extract_repo_name_from_url, get_analysis_data
+from src.api.issues import (
+    extract_repo_name_from_url,
+    get_analysis_data,
+    post_ai_comment,
+)
 
 
 class TestExtractRepoNameFromUrl:
@@ -84,6 +88,7 @@ class TestGetAnalysisData:
         mock_resp = Mock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = mock_api_response
+        mock_resp.headers = {"Content-Type": "application/json"}
         mock_get.return_value = mock_resp
 
         # Call function
@@ -108,6 +113,7 @@ class TestGetAnalysisData:
         mock_resp = Mock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = mock_api_response
+        mock_resp.headers = {"Content-Type": "application/json"}
         mock_get.return_value = mock_resp
 
         _, _, workspace = get_analysis_data("test-scan-456")
@@ -184,6 +190,7 @@ class TestGetAnalysisData:
         """Test handling of response with missing fields"""
         mock_resp = Mock()
         mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
         mock_resp.json.return_value = {
             "analysis": {
                 # Missing warnings field
@@ -206,6 +213,7 @@ class TestGetAnalysisData:
         """Test using custom API URL from environment"""
         mock_resp = Mock()
         mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
         mock_resp.json.return_value = mock_api_response
         mock_get.return_value = mock_resp
 
@@ -220,6 +228,7 @@ class TestGetAnalysisData:
         """Test handling of empty warnings list"""
         mock_resp = Mock()
         mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
         mock_resp.json.return_value = {
             "analysis": {"warnings": [], "repo_url": "https://github.com/test/repo"},
             "rules": [],
@@ -249,6 +258,7 @@ class TestGetAnalysisData:
         """Test handling of partial API response"""
         mock_resp = Mock()
         mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
         mock_resp.json.return_value = {
             "analysis": {
                 "warnings": [{"id": 1, "rule_id": 1, "file": "test.py", "line": 10}],
@@ -276,6 +286,7 @@ class TestIntegrationWithEnvironment:
 
         mock_resp = Mock()
         mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
         mock_resp.json.return_value = mock_api_response
         mock_get.return_value = mock_resp
 
@@ -290,3 +301,139 @@ class TestIntegrationWithEnvironment:
         call_url = mock_get.call_args[0][0]
         assert "http://test-api:8080/api" in call_url
         assert "env-test-scan" in call_url
+
+
+class TestPostAiComment:
+    """Test posting AI comment results to API"""
+
+    @patch("requests.post")
+    def test_post_ai_comment_success(self, mock_post):
+        """Test successful AI comment posting"""
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
+        mock_resp.json.return_value = {"status": "success"}
+        mock_resp.text = '{"status": "success"}'
+        mock_post.return_value = mock_resp
+
+        ai_results = [
+            {
+                "warning_id": 1,
+                "original": "console.log('debug')",
+                "fixed": "// Remove debug statement",
+            }
+        ]
+
+        result = post_ai_comment("test-scan-123", ai_results)
+
+        assert result is True
+        mock_post.assert_called_once()
+
+        # Verify call details
+        call_args = mock_post.call_args
+        assert call_args[1]["json"] == ai_results
+        assert "test-scan-123" in call_args[0][0]
+        assert "application/json" in call_args[1]["headers"]["Content-Type"]
+
+    @patch("requests.post")
+    def test_post_ai_comment_empty_results(self, mock_post):
+        """Test posting empty AI results"""
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
+        mock_resp.json.return_value = {"status": "success"}
+        mock_resp.text = '{"status": "success"}'
+        mock_post.return_value = mock_resp
+
+        result = post_ai_comment("test-scan", [])
+
+        assert result is True
+        mock_post.assert_called_once()
+        assert mock_post.call_args[1]["json"] == []
+
+    @patch("requests.post")
+    def test_post_ai_comment_http_error(self, mock_post):
+        """Test handling HTTP errors during posting"""
+        mock_post.side_effect = requests.exceptions.HTTPError("404 Not Found")
+
+        ai_results = [{"warning_id": 1, "original": "code", "fixed": "fixed_code"}]
+        result = post_ai_comment("test-scan", ai_results)
+
+        assert result is False
+
+    @patch("requests.post")
+    def test_post_ai_comment_connection_error(self, mock_post):
+        """Test handling connection errors"""
+        mock_post.side_effect = requests.exceptions.ConnectionError("Connection failed")
+
+        result = post_ai_comment("test-scan", [])
+
+        assert result is False
+
+    @patch("requests.post")
+    def test_post_ai_comment_timeout_error(self, mock_post):
+        """Test handling timeout errors"""
+        mock_post.side_effect = requests.exceptions.Timeout("Request timeout")
+
+        result = post_ai_comment("test-scan", [])
+
+        assert result is False
+
+    @patch("requests.post")
+    def test_post_ai_comment_generic_exception(self, mock_post):
+        """Test handling generic exceptions"""
+        mock_post.side_effect = ValueError("Unexpected error")
+
+        result = post_ai_comment("test-scan", [])
+
+        assert result is False
+
+    @patch("requests.post")
+    def test_post_ai_comment_with_env_var(self, mock_post, monkeypatch):
+        """Test posting with custom API URL from environment"""
+        monkeypatch.setenv("API_URL", "http://custom-api:9000")
+
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
+        mock_resp.json.return_value = {"status": "success"}
+        mock_resp.text = '{"status": "success"}'
+        mock_post.return_value = mock_resp
+
+        result = post_ai_comment("env-test", [])
+
+        assert result is True
+
+        # Verify custom URL was used
+        call_url = mock_post.call_args[0][0]
+        assert "http://custom-api:9000/scans/ai_comment/env-test" == call_url
+
+    @patch("requests.post")
+    def test_post_ai_comment_with_complex_data(self, mock_post):
+        """Test posting with complex AI results data"""
+        mock_resp = Mock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
+        mock_resp.json.return_value = {"status": "success"}
+        mock_resp.text = '{"status": "success"}'
+        mock_post.return_value = mock_resp
+
+        ai_results = [
+            {"warning_id": 1, "original": "var x = 1;", "fixed": "let x = 1;"},
+            {
+                "warning_id": 2,
+                "original": "function test() { console.log('test'); }",
+                "fixed": "function test() { /* Remove debug log */ }",
+            },
+        ]
+
+        result = post_ai_comment("complex-scan", ai_results)
+
+        assert result is True
+        mock_post.assert_called_once()
+
+        # Verify all data was sent correctly
+        sent_data = mock_post.call_args[1]["json"]
+        assert len(sent_data) == 2
+        assert sent_data[0]["warning_id"] == 1
+        assert sent_data[1]["warning_id"] == 2

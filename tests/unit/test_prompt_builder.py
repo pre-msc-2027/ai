@@ -52,7 +52,7 @@ class TestBuildPrompt:
         assert "app.js" in result
         assert "25" in str(result)
         assert "Console Usage" in result
-        assert "Paramètres de la règle" in result
+        assert "Rule parameters" in result
         assert "level" in result
         assert "warning" in result
 
@@ -70,7 +70,7 @@ class TestBuildPrompt:
 
         result = build_prompt(code_snippet, rule, file_path, line_number)
 
-        assert "Pas de description" in result
+        assert "No description available" in result
 
     def test_build_prompt_description_lowercase(self):
         """Test prompt building with lowercase description key"""
@@ -118,7 +118,7 @@ class TestBuildPrompt:
 
         result = build_prompt(code_snippet, rule, file_path, line_number)
 
-        assert "Règle inconnue" in result
+        assert "Unknown rule" in result
 
     def test_build_prompt_missing_language(self):
         """Test prompt building with missing language"""
@@ -134,7 +134,7 @@ class TestBuildPrompt:
 
         result = build_prompt(code_snippet, rule, file_path, line_number)
 
-        assert "inconnu" in result.lower()
+        assert "unknown" in result.lower()
 
     def test_build_prompt_empty_parameters(self):
         """Test prompt building with empty parameters"""
@@ -151,7 +151,7 @@ class TestBuildPrompt:
         result = build_prompt(code_snippet, rule, file_path, line_number)
 
         # Should not include parameters section
-        assert "Paramètres de la règle" not in result
+        assert "Rule parameters" not in result
 
     def test_build_prompt_none_parameters(self):
         """Test prompt building with None parameters"""
@@ -168,7 +168,7 @@ class TestBuildPrompt:
         result = build_prompt(code_snippet, rule, file_path, line_number)
 
         # Should not include parameters section
-        assert "Paramètres de la règle" not in result
+        assert "Rule parameters" not in result
 
     def test_build_prompt_multiline_code(self):
         """Test prompt building with multiline code snippet"""
@@ -223,13 +223,13 @@ class TestBuildPrompt:
         result = build_prompt(code_snippet, rule, "file.py", 1)
 
         # Check structure elements
-        assert "Tu es un expert" in result
-        assert "**Problème identifié :**" in result
-        assert "**Code concerné :**" in result
-        assert "**Instructions :**" in result
-        assert "1. Identifie la ligne exacte" in result
-        assert "2. Propose une correction" in result
-        assert "3. Réponds UNIQUEMENT au format JSON" in result
+        assert "You are a" in result
+        assert "**Identified Problem:**" in result
+        assert "**Code in question:**" in result
+        assert "**Instructions:**" in result
+        assert "1. Identify the exact line" in result
+        assert "2. Provide a correction" in result
+        assert "3. Return ONLY valid JSON" in result
 
     def test_build_prompt_json_format_instruction(self):
         """Test that JSON format instruction is included"""
@@ -246,7 +246,7 @@ class TestBuildPrompt:
         # Check JSON format example is included
         assert '{"original":' in result
         assert '"fixed":' in result
-        assert "JSON valide" in result
+        assert "valid JSON" in result
 
     def test_build_prompt_complex_parameters(self):
         """Test prompt building with complex nested parameters"""
@@ -266,7 +266,7 @@ class TestBuildPrompt:
 
         result = build_prompt(code_snippet, rule, file_path, line_number)
 
-        assert "Paramètres de la règle" in result
+        assert "Rule parameters" in result
         # Parameters should be converted to string representation
         assert "level" in result
         assert "options" in result

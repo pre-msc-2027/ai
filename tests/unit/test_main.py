@@ -239,48 +239,47 @@ class TestLogStartupInfo:
 class TestMainFunction:
     """Test main function integration"""
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.parse_arguments")
     @patch("src.main.setup_logging")
     @patch("src.main.log_startup_info")
-    @patch("builtins.print")
     def test_main_no_warnings(
         self,
-        mock_print,
         mock_log_info,
         mock_setup,
         mock_parse,
         mock_get_data,
+        mock_post_api,
         test_args,
     ):
         """Test main function with no warnings"""
         mock_parse.return_value = test_args
         mock_get_data.return_value = ([], [], "/workspace")
+        mock_post_api.return_value = True
 
         main()
 
         mock_setup.assert_called_once_with(False)
         mock_log_info.assert_called_once_with(test_args)
-        mock_print.assert_called_once()
 
-        # Check that empty JSON array was printed
-        printed = mock_print.call_args[0][0]
-        assert json.loads(printed) == []
+        # Check that API was called with empty array
+        mock_post_api.assert_called_once_with(test_args.scan_id, [])
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.process_warning")
     @patch("src.main.parse_arguments")
     @patch("src.main.setup_logging")
     @patch("src.main.log_startup_info")
-    @patch("builtins.print")
     def test_main_with_warnings(
         self,
-        mock_print,
         mock_log_info,
         mock_setup,
         mock_parse,
         mock_process,
         mock_get_data,
+        mock_post_api,
         test_args,
         mock_warnings,
         mock_rules,
@@ -288,6 +287,7 @@ class TestMainFunction:
         """Test main function with warnings"""
         mock_parse.return_value = test_args
         mock_get_data.return_value = (mock_warnings, mock_rules, "/workspace")
+        mock_post_api.return_value = True
 
         # Mock process_warning to return results for first and third warnings
         mock_process.side_effect = [
@@ -301,29 +301,30 @@ class TestMainFunction:
         # Check process_warning was called for each warning
         assert mock_process.call_count == 3
 
-        # Check output
-        mock_print.assert_called_once()
-        printed = mock_print.call_args[0][0]
-        results = json.loads(printed)
+        # Check API was called with results
+        mock_post_api.assert_called_once()
+        call_args = mock_post_api.call_args
+        assert call_args[0][0] == test_args.scan_id
+        results = call_args[0][1]
 
         assert len(results) == 2
         assert results[0]["warning_id"] == 0
         assert results[1]["warning_id"] == 2
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.parse_arguments")
     @patch("src.main.setup_logging")
     @patch("src.main.log_startup_info")
     @patch("logging.warning")
-    @patch("builtins.print")
     def test_main_verbose_no_warnings(
         self,
-        mock_print,
         mock_log_warn,
         mock_log_info,
         mock_setup,
         mock_parse,
         mock_get_data,
+        mock_post_api,
     ):
         """Test main function in verbose mode with no warnings"""
         test_args = Mock()
@@ -332,28 +333,29 @@ class TestMainFunction:
 
         mock_parse.return_value = test_args
         mock_get_data.return_value = ([], [], "/workspace")
+        mock_post_api.return_value = True
 
         main()
 
         mock_log_warn.assert_called_once()
         assert "Aucun warning trouvé" in mock_log_warn.call_args[0][0]
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.process_warning")
     @patch("src.main.parse_arguments")
     @patch("src.main.setup_logging")
     @patch("src.main.log_startup_info")
     @patch("logging.info")
-    @patch("builtins.print")
     def test_main_verbose_with_warnings(
         self,
-        mock_print,
         mock_log_info,
         mock_log_startup,
         mock_setup,
         mock_parse,
         mock_process,
         mock_get_data,
+        mock_post_api,
         mock_warnings,
         mock_rules,
     ):
@@ -366,6 +368,7 @@ class TestMainFunction:
 
         mock_parse.return_value = test_args
         mock_get_data.return_value = (mock_warnings, mock_rules, "/workspace")
+        mock_post_api.return_value = True
         mock_process.return_value = {
             "warning_id": 0,
             "original": "test",
@@ -378,16 +381,19 @@ class TestMainFunction:
         log_calls = [call[0][0] for call in mock_log_info.call_args_list]
         assert any("3 warnings" in str(call) for call in log_calls)
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.load_dotenv")
     @patch("src.main.get_analysis_data")
     @patch("src.main.parse_arguments")
-    def test_main_loads_dotenv(self, mock_parse, mock_get_data, mock_dotenv):
+    def test_main_loads_dotenv(
+        self, mock_parse, mock_get_data, mock_dotenv, mock_post_api
+    ):
         """Test that main loads .env file"""
         mock_parse.return_value = Mock(verbose=False, scan_id="test")
         mock_get_data.return_value = ([], [], "/workspace")
+        mock_post_api.return_value = True
 
-        with patch("builtins.print"):
-            main()
+        main()
 
         mock_dotenv.assert_called_once()
 
@@ -395,6 +401,7 @@ class TestMainFunction:
 class TestEndToEnd:
     """End-to-end integration tests"""
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.send_prompt_to_ollama")
     @patch("src.main.extract_code_snippet")
@@ -404,6 +411,7 @@ class TestEndToEnd:
         mock_extract,
         mock_ollama,
         mock_get_data,
+        mock_post_api,
         mock_warnings,
         mock_rules,
         capsys,
@@ -417,14 +425,17 @@ class TestEndToEnd:
         )
         mock_extract.return_value = "import unused_module"
         mock_ollama.return_value = '{"original": "import unused_module", "fixed": ""}'
+        mock_post_api.return_value = True
 
         # Run main
         main()
 
-        # Check output
-        captured = capsys.readouterr()
-        output = json.loads(captured.out)
+        # Check API was called with correct data
+        mock_post_api.assert_called_once()
+        call_args = mock_post_api.call_args
+        assert call_args[0][0] == "test-e2e"  # scan_id
 
+        output = call_args[0][1]  # AI results
         assert len(output) == 1
         assert output[0]["warning_id"] == 0
         assert output[0]["original"] == "import unused_module"

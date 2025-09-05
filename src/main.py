@@ -5,7 +5,7 @@ import os
 
 from dotenv import load_dotenv
 
-from src.api.issues import get_analysis_data
+from src.api.issues import get_analysis_data, post_ai_comment
 from src.ollama.client import send_prompt_to_ollama
 from src.prompt_builder import build_prompt
 from src.utils.code_reader import extract_code_snippet
@@ -73,6 +73,11 @@ def process_warning(warning, rules_dict, workspace, args):
     file_path = warning["file"]
     line_number = warning["line"]
 
+    logging.debug(f"Processing warning {warning_id}")
+    logging.debug(f"   Rule ID: {rule_id}")
+    logging.debug(f"   File: {file_path}")
+    logging.debug(f"   Line: {line_number}")
+
     if args.verbose:
         logging.info(f"Traitement du warning {warning_id} (règle {rule_id})")
 
@@ -81,19 +86,29 @@ def process_warning(warning, rules_dict, workspace, args):
         logging.error(f"Règle {rule_id} introuvable pour le warning {warning_id}")
         return None
 
+    logging.debug(f"Rule found: {rule.get('name', 'Unknown')}")
+
     code_snippet = extract_code_snippet(file_path, line_number, workspace=workspace)
+    logging.debug(f"Code snippet extracted:\n{code_snippet}")
+
     prompt = build_prompt(
         code_snippet=code_snippet,
         rule=rule,
         file_path=file_path,
         line_number=line_number,
     )
+    logging.debug(f"Generated prompt:\n{prompt}")
 
     try:
+        logging.debug(f"Sending prompt to Ollama (model: {args.model})")
         response = send_prompt_to_ollama(
             prompt=prompt, model=args.model, host=args.host
         )
+        logging.debug(f"Raw Ollama response:\n{response}")
+
+        logging.debug("Parsing JSON response...")
         parsed_response = parse_json_response(response)
+        logging.debug(f"Parsed JSON: {parsed_response}")
 
         if (
             parsed_response
@@ -102,18 +117,18 @@ def process_warning(warning, rules_dict, workspace, args):
         ):
             if args.verbose:
                 logging.info(f"✓ Warning {warning_id} traité avec succès")
-            return {
-                "warning_id": warning_id,
-                "original": parsed_response["original"],
-                "fixed": parsed_response["fixed"],
-            }
+            result = {"warning_id": warning_id, **parsed_response}
+            logging.debug(f"Final result for warning {warning_id}: {result}")
+            return result
         else:
             logging.error(
                 f"Réponse JSON invalide pour le warning {warning_id}: "
                 f"{response[:100]}..."
             )
+            logging.debug(f"Full invalid response: {response}")
     except Exception as e:
         logging.error(f"Erreur lors du traitement du warning {warning_id}: {e}")
+        logging.debug(f"Exception details: {type(e).__name__}: {e}")
 
     return None
 
@@ -164,26 +179,69 @@ def main():
     setup_logging(args.verbose)
     log_startup_info(args)
 
+    logging.debug(f"Starting analysis for scan ID: {args.scan_id}")
+    logging.debug(f"Configuration - Model: {args.model}, Host: {args.host}")
+
     warnings, rules, workspace = get_analysis_data(args.scan_id)
+    logging.debug(f"Retrieved data: {len(warnings)} warnings, {len(rules)} rules")
+    logging.debug(f"Workspace: {workspace}")
 
     if not warnings:
         if args.verbose:
             logging.warning("Aucun warning trouvé dans l'analyse")
-        print(json.dumps([], indent=2))
+        logging.debug("Sending empty results to API")
+        # Envoyer un tableau vide vers l'API
+        success = post_ai_comment(args.scan_id, [])
+        if not success:
+            # En cas d'erreur, afficher un tableau vide localement comme fallback
+            print(json.dumps([], indent=2))
+        logging.debug("Empty results processing completed")
         return
 
     if args.verbose:
         logging.info(f"Traitement de {len(warnings)} warnings")
 
+    logging.debug(f"Building rules dictionary from {len(rules)} rules")
     rules_dict = {rule["rule_id"]: rule for rule in rules}
-    results = []
+    logging.debug(f"Rules available: {list(rules_dict.keys())}")
 
-    for warning in warnings:
+    results = []
+    logging.debug(f"Starting to process {len(warnings)} warnings...")
+
+    for i, warning in enumerate(warnings, 1):
+        logging.debug(f"Processing warning {i}/{len(warnings)}")
         result = process_warning(warning, rules_dict, workspace, args)
         if result:
             results.append(result)
+            logging.debug(f"Warning {i} processed successfully")
+        else:
+            logging.debug(f"Warning {i} failed to process")
 
-    print(json.dumps(results, indent=2, ensure_ascii=False))
+    logging.debug(
+        f"Processing completed: {len(results)}/{len(warnings)} warnings "
+        f"successfully processed"
+    )
+
+    if args.verbose:
+        logging.info(f"Envoi de {len(results)} résultats vers l'API...")
+
+    logging.debug(f"Sending {len(results)} results to API endpoint")
+    logging.debug(
+        f"Final results to send: {json.dumps(results, indent=2, ensure_ascii=False)}"
+    )
+
+    success = post_ai_comment(args.scan_id, results)
+    if success:
+        if args.verbose:
+            logging.info("Résultats envoyés avec succès vers l'API")
+        logging.debug("API submission successful")
+    else:
+        logging.error("Échec de l'envoi des résultats vers l'API")
+        logging.debug("API submission failed, falling back to console output")
+        # En cas d'erreur, afficher les résultats localement comme fallback
+        print(json.dumps(results, indent=2, ensure_ascii=False))
+
+    logging.debug("Main processing completed")
 
 
 if __name__ == "__main__":

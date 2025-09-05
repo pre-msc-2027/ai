@@ -19,12 +19,13 @@ from src.utils.code_reader import extract_code_snippet
 class TestCompleteWorkflow:
     """Test complete application workflows end-to-end"""
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.send_prompt_to_ollama")
     @patch("src.main.extract_code_snippet")
     @patch("sys.argv", ["main.py", "--scan-id", "integration-test"])
     def test_single_warning_successful_fix(
-        self, mock_extract, mock_ollama, mock_get_data, capsys
+        self, mock_extract, mock_ollama, mock_get_data, mock_post_api, capsys
     ):
         """Test complete flow with a single warning that gets fixed"""
         # Setup mock data
@@ -43,25 +44,29 @@ class TestCompleteWorkflow:
         )
         mock_extract.return_value = "import unused"
         mock_ollama.return_value = '{"original": "import unused", "fixed": ""}'
+        mock_post_api.return_value = True  # API call succeeds
 
         # Run main
         main()
 
-        # Verify output
-        captured = capsys.readouterr()
-        result = json.loads(captured.out)
+        # Verify API was called with correct data
+        mock_post_api.assert_called_once()
+        call_args = mock_post_api.call_args
+        assert call_args[0][0] == "integration-test"  # scan_id
 
+        result = call_args[0][1]  # AI results
         assert len(result) == 1
         assert result[0]["warning_id"] == 1
         assert result[0]["original"] == "import unused"
         assert result[0]["fixed"] == ""
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.send_prompt_to_ollama")
     @patch("src.main.extract_code_snippet")
     @patch("sys.argv", ["main.py", "--scan-id", "multi-test", "--verbose"])
     def test_multiple_warnings_mixed_results(
-        self, mock_extract, mock_ollama, mock_get_data, capsys
+        self, mock_extract, mock_ollama, mock_get_data, mock_post_api, capsys
     ):
         """Test workflow with multiple warnings, some succeed, some fail"""
         # Setup mock data
@@ -89,6 +94,7 @@ class TestCompleteWorkflow:
 
         mock_get_data.return_value = (warnings, rules, "/workspace")
         mock_extract.return_value = "code snippet"
+        mock_post_api.return_value = True
 
         # First and third succeed, second fails
         mock_ollama.side_effect = [
@@ -100,34 +106,38 @@ class TestCompleteWorkflow:
         # Run main
         main()
 
-        # Verify output
-        captured = capsys.readouterr()
-        result = json.loads(captured.out)
+        # Verify API was called with correct data
+        mock_post_api.assert_called_once()
+        call_args = mock_post_api.call_args
+        assert call_args[0][0] == "multi-test"  # scan_id
 
+        result = call_args[0][1]  # AI results
         assert len(result) == 2
         assert result[0]["warning_id"] == 1
         assert result[0]["fixed"] == "good1"
         assert result[1]["warning_id"] == 3
         assert result[1]["fixed"] == "good3"
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("sys.argv", ["main.py", "--scan-id", "no-warnings-test"])
-    def test_no_warnings_empty_output(self, mock_get_data, capsys):
+    def test_no_warnings_empty_output(self, mock_get_data, mock_post_api, capsys):
         """Test workflow when no warnings are found"""
         mock_get_data.return_value = ([], [], "/workspace")
+        mock_post_api.return_value = True
 
         main()
 
-        captured = capsys.readouterr()
-        result = json.loads(captured.out)
-        assert result == []
+        # Verify API was called with empty results
+        mock_post_api.assert_called_once_with("no-warnings-test", [])
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.send_prompt_to_ollama")
     @patch("src.main.extract_code_snippet")
     @patch("sys.argv", ["main.py", "--scan-id", "error-recovery-test"])
     def test_error_recovery_workflow(
-        self, mock_extract, mock_ollama, mock_get_data, capsys
+        self, mock_extract, mock_ollama, mock_get_data, mock_post_api, capsys
     ):
         """Test that workflow continues despite individual errors"""
         warnings = [
@@ -148,12 +158,16 @@ class TestCompleteWorkflow:
         mock_get_data.return_value = (warnings, rules, "/workspace")
         mock_extract.return_value = "code"
         mock_ollama.return_value = '{"original": "code", "fixed": "fixed"}'
+        mock_post_api.return_value = True
 
         main()
 
-        captured = capsys.readouterr()
-        result = json.loads(captured.out)
+        # Verify API was called with correct data
+        mock_post_api.assert_called_once()
+        call_args = mock_post_api.call_args
+        assert call_args[0][0] == "error-recovery-test"  # scan_id
 
+        result = call_args[0][1]  # AI results
         # Should process warnings 1 and 3, skip 2 (missing rule)
         assert len(result) == 2
         assert result[0]["warning_id"] == 1
@@ -186,6 +200,7 @@ class TestAPIToOllamaIntegration:
 
         mock_resp = Mock()
         mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "application/json"}
         mock_resp.json.return_value = api_response
         mock_requests.return_value = mock_resp
 
@@ -218,11 +233,14 @@ class TestAPIToOllamaIntegration:
 class TestPerformanceWithManyWarnings:
     """Test system performance with large numbers of warnings"""
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.send_prompt_to_ollama")
     @patch("src.main.extract_code_snippet")
     @patch("sys.argv", ["main.py", "--scan-id", "performance-test"])
-    def test_hundred_warnings(self, mock_extract, mock_ollama, mock_get_data, capsys):
+    def test_hundred_warnings(
+        self, mock_extract, mock_ollama, mock_get_data, mock_post_api, capsys
+    ):
         """Test processing 100 warnings"""
         # Generate 100 warnings
         warnings = [
@@ -244,6 +262,7 @@ class TestPerformanceWithManyWarnings:
 
         mock_get_data.return_value = (warnings, rules, "/workspace")
         mock_extract.return_value = "code"
+        mock_post_api.return_value = True
 
         # 80% success rate
         responses = []
@@ -256,9 +275,12 @@ class TestPerformanceWithManyWarnings:
 
         main()
 
-        captured = capsys.readouterr()
-        result = json.loads(captured.out)
+        # Verify API was called with correct data
+        mock_post_api.assert_called_once()
+        call_args = mock_post_api.call_args
+        assert call_args[0][0] == "performance-test"  # scan_id
 
+        result = call_args[0][1]  # AI results
         # Should have 80 successful fixes
         assert len(result) == 80
 
@@ -272,11 +294,14 @@ class TestPerformanceWithManyWarnings:
 class TestDifferentLanguages:
     """Test handling of different programming languages"""
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.send_prompt_to_ollama")
     @patch("src.main.extract_code_snippet")
     @patch("sys.argv", ["main.py", "--scan-id", "multilang-test"])
-    def test_multiple_languages(self, mock_extract, mock_ollama, mock_get_data, capsys):
+    def test_multiple_languages(
+        self, mock_extract, mock_ollama, mock_get_data, mock_post_api, capsys
+    ):
         """Test processing warnings for different languages"""
         warnings = [
             {"id": 1, "rule_id": 1, "file": "test.py", "line": 10},
@@ -309,6 +334,7 @@ class TestDifferentLanguages:
         ]
 
         mock_get_data.return_value = (warnings, rules, "/workspace")
+        mock_post_api.return_value = True
 
         # Different code for each language
         mock_extract.side_effect = [
@@ -331,9 +357,12 @@ class TestDifferentLanguages:
 
         main()
 
-        captured = capsys.readouterr()
-        result = json.loads(captured.out)
+        # Verify API was called with correct data
+        mock_post_api.assert_called_once()
+        call_args = mock_post_api.call_args
+        assert call_args[0][0] == "multilang-test"  # scan_id
 
+        result = call_args[0][1]  # AI results
         assert len(result) == 3
         assert result[0]["fixed"] == ""
         assert "logger.debug" in result[1]["fixed"]
@@ -343,6 +372,7 @@ class TestDifferentLanguages:
 class TestEnvironmentConfiguration:
     """Test environment-based configuration"""
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.send_prompt_to_ollama")
     @patch("src.main.extract_code_snippet")
@@ -355,7 +385,9 @@ class TestEnvironmentConfiguration:
         },
     )
     @patch("sys.argv", ["main.py", "--scan-id", "env-test"])
-    def test_env_variables_used(self, mock_extract, mock_ollama, mock_get_data):
+    def test_env_variables_used(
+        self, mock_extract, mock_ollama, mock_get_data, mock_post_api
+    ):
         """Test that environment variables are properly used"""
         mock_get_data.return_value = (
             [{"id": 1, "rule_id": 1, "file": "test.py", "line": 10}],
@@ -372,9 +404,9 @@ class TestEnvironmentConfiguration:
         )
         mock_extract.return_value = "code"
         mock_ollama.return_value = '{"original": "code", "fixed": "fixed"}'
+        mock_post_api.return_value = True
 
-        with patch("builtins.print"):
-            main()
+        main()
 
         # Check that env variables were used
         mock_ollama.assert_called_with(
@@ -387,13 +419,14 @@ class TestEnvironmentConfiguration:
 class TestVerboseMode:
     """Test verbose mode logging and output"""
 
+    @patch("src.main.post_ai_comment")
     @patch("src.main.get_analysis_data")
     @patch("src.main.send_prompt_to_ollama")
     @patch("src.main.extract_code_snippet")
     @patch("logging.info")
     @patch("sys.argv", ["main.py", "--scan-id", "verbose-test", "--verbose"])
     def test_verbose_logging(
-        self, mock_log_info, mock_extract, mock_ollama, mock_get_data
+        self, mock_log_info, mock_extract, mock_ollama, mock_get_data, mock_post_api
     ):
         """Test that verbose mode produces detailed logging"""
         mock_get_data.return_value = (
@@ -411,9 +444,9 @@ class TestVerboseMode:
         )
         mock_extract.return_value = "code"
         mock_ollama.return_value = '{"original": "code", "fixed": "fixed"}'
+        mock_post_api.return_value = True
 
-        with patch("builtins.print"):
-            main()
+        main()
 
         # Check verbose logging occurred
         log_messages = [str(call) for call in mock_log_info.call_args_list]
