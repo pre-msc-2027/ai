@@ -51,7 +51,7 @@ def get_analysis_data(scan_id: str) -> Tuple[List[Any], List[Any], Optional[str]
         Tuple[warnings, rules, workspace]: Listes des warnings et rules, workspace
     """
     api_base_url = os.getenv("API_URL", "http://localhost:8001")
-    api_url = f"{api_base_url}/api/scans/analyse_with_rules/{scan_id}"
+    api_url = f"http://{api_base_url}/api/scans/analyse_with_rules/{scan_id}"
 
     logging.debug("Making GET request to API")
     logging.debug(f"   URL: {api_url}")
@@ -146,7 +146,7 @@ def post_ai_comment(scan_id: str, ai_results: List[Dict[str, Any]]) -> bool:
         bool: True si l'envoi a réussi, False sinon
     """
     api_base_url = os.getenv("API_URL", "http://localhost:8001")
-    api_url = f"{api_base_url}/scans/ai_comment/{scan_id}"
+    api_url = f"http://{api_base_url}/scans/ai_comment/{scan_id}"
 
     logging.debug("Preparing to POST AI results to API")
     logging.debug(f"   URL: {api_url}")
