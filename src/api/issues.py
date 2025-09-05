@@ -71,6 +71,13 @@ def get_analysis_data(scan_id: str) -> Tuple[List[Any], List[Any], Optional[str]
         warnings = analysis.get("warnings", [])
         rules = data.get("rules", [])
 
+        # Retirer "folders/" au début du chemin de fichier si présent
+        for warning in warnings:
+            if warning.get("file", "").startswith("folders/"):
+                warning["file"] = warning["file"][
+                    8:
+                ]  # Retire les 8 caractères de "folders/"
+
         logging.debug("Parsed data:")
         logging.debug(f"   Warnings: {len(warnings)}")
         logging.debug(f"   Rules: {len(rules)}")
